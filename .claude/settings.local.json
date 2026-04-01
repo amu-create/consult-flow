@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Users/Portfolio/**)",
+      "Bash(npx create-next-app@latest consult-flow --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init -d --force)"
+    ]
+  }
+}
