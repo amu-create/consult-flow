@@ -24,6 +24,7 @@ const TEMPLATES = [
     trigger: "상담 예약 1일 전",
     template:
       "[ConsultFlow] #{학생명} 학부모님, 내일 #{시간}에 #{학원명} 상담이 예정되어 있습니다. 변경이 필요하시면 #{전화번호}로 연락주세요.",
+    testText: "[ConsultFlow] 김민수 학부모님, 내일 14:00에 영재학원 상담이 예정되어 있습니다.",
     active: true,
   },
   {
@@ -33,6 +34,7 @@ const TEMPLATES = [
     trigger: "체험수업 예약 시",
     template:
       "[ConsultFlow] #{학생명} 학부모님, #{날짜} #{시간} 체험수업이 확정되었습니다. 준비물: #{준비물}. 장소: #{학원주소}",
+    testText: "[ConsultFlow] 이서연 학부모님, 4월 5일 16:00 체험수업이 확정되었습니다.",
     active: true,
   },
   {
@@ -42,6 +44,7 @@ const TEMPLATES = [
     trigger: "팔로업 태스크 기한 당일",
     template:
       "[ConsultFlow] 오늘 #{학생명} 학부모님께 후속 연락 예정입니다. (#{태스크내용})",
+    testText: "[ConsultFlow] 오늘 박지훈 학부모님께 후속 연락 예정입니다. (체험수업 후기 확인)",
     active: false,
   },
   {
@@ -51,6 +54,7 @@ const TEMPLATES = [
     trigger: "등록 완료 처리 시",
     template:
       "[ConsultFlow] #{학생명} 학부모님, #{학원명} 등록이 완료되었습니다! 첫 수업은 #{시작일}입니다. 감사합니다.",
+    testText: "[ConsultFlow] 최예린 학부모님, 영재학원 등록이 완료되었습니다! 감사합니다.",
     active: true,
   },
   {
@@ -60,6 +64,7 @@ const TEMPLATES = [
     trigger: "마지막 상담 후 7일 경과",
     template:
       "[알림] #{학생명} 리드가 7일간 후속 조치 없습니다. 즉시 확인해주세요.",
+    testText: "[알림] 홍길동 리드가 7일간 후속 조치 없습니다. 즉시 확인해주세요.",
     active: true,
   },
 ];
@@ -78,7 +83,8 @@ export default function NotificationsPage() {
   const [templates, setTemplates] = useState(TEMPLATES);
   const [testPhone, setTestPhone] = useState("");
   const [sending, setSending] = useState<string | null>(null);
-  const [apiConnected, setApiConnected] = useState(false);
+  const [kakaoMessage, setKakaoMessage] = useState("");
+  const [sendingKakao, setSendingKakao] = useState(false);
 
   function toggleTemplate(id: string) {
     setTemplates((prev) =>
@@ -87,19 +93,82 @@ export default function NotificationsPage() {
     toast.success("알림 설정이 변경되었습니다.");
   }
 
-  function handleTestSend(templateId: string) {
-    setSending(templateId);
-    // Simulate API call
-    setTimeout(() => {
-      setSending(null);
-      if (!apiConnected) {
-        toast.info("API 키가 설정되지 않아 Mock 모드로 전송했습니다.", {
-          description: "실제 연동 시 카카오 비즈메시지 API 키를 설정해주세요.",
+  async function handleTestSend(template: typeof TEMPLATES[0]) {
+    setSending(template.id);
+
+    if (template.channel === "KAKAO") {
+      // 카카오 나에게 보내기
+      try {
+        const res = await fetch("/api/notifications/kakao-me", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: template.testText }),
         });
-      } else {
-        toast.success("테스트 메시지를 전송했습니다.");
+        const data = await res.json();
+        if (data.success) {
+          toast.success("카카오톡으로 전송했습니다!", { description: "카카오톡 앱을 확인하세요." });
+        } else {
+          toast.error(data.error || "전송 실패", {
+            description: data.error?.includes("카카오 로그인") ? "로그아웃 후 카카오 로그인으로 다시 접속해주세요." : undefined,
+          });
+        }
+      } catch {
+        toast.error("전송 중 오류가 발생했습니다.");
       }
-    }, 1500);
+    } else {
+      // SMS via Solapi
+      if (!testPhone) {
+        toast.error("테스트 수신 번호를 입력해주세요.");
+        setSending(null);
+        return;
+      }
+      try {
+        const res = await fetch("/api/notifications/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: testPhone, text: template.testText }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("SMS를 전송했습니다!", { description: `수신: ${testPhone}` });
+        } else if (data.mock) {
+          toast.info("Mock 모드: Solapi API 키가 설정되지 않았습니다.", {
+            description: "환경변수에 SOLAPI_API_KEY, SOLAPI_API_SECRET을 설정하세요.",
+          });
+        } else {
+          toast.error(data.error || "SMS 전송 실패");
+        }
+      } catch {
+        toast.error("전송 중 오류가 발생했습니다.");
+      }
+    }
+
+    setSending(null);
+  }
+
+  async function handleKakaoSend() {
+    if (!kakaoMessage.trim()) {
+      toast.error("메시지를 입력해주세요.");
+      return;
+    }
+    setSendingKakao(true);
+    try {
+      const res = await fetch("/api/notifications/kakao-me", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: kakaoMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("카카오톡으로 전송했습니다!");
+        setKakaoMessage("");
+      } else {
+        toast.error(data.error || "전송 실패");
+      }
+    } catch {
+      toast.error("전송 중 오류가 발생했습니다.");
+    }
+    setSendingKakao(false);
   }
 
   return (
@@ -111,70 +180,54 @@ export default function NotificationsPage() {
         </p>
       </div>
 
-      {/* API Connection Status */}
-      <Card className={apiConnected ? "border-green-300 dark:border-green-800" : "border-amber-300 dark:border-amber-800"}>
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2 ${apiConnected ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
-                <Zap className={`h-5 w-5 ${apiConnected ? "text-green-600" : "text-amber-600"}`} />
-              </div>
-              <div>
-                <p className="font-medium">
-                  {apiConnected ? "API 연결됨" : "API 미연결 (Mock 모드)"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {apiConnected
-                    ? "카카오 비즈메시지 API가 정상 연결되었습니다."
-                    : "API 키를 설정하면 실제 알림이 발송됩니다."}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={apiConnected ? "outline" : "default"}
-                size="sm"
-                onClick={() => setApiConnected(!apiConnected)}
-              >
-                <Settings className="h-4 w-4 mr-1" />
-                {apiConnected ? "연결 해제" : "API 키 설정"}
-              </Button>
-            </div>
+      {/* Kakao 나에게 보내기 */}
+      <Card className="border-yellow-300 dark:border-yellow-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-yellow-600" />
+            카카오톡 나에게 보내기
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            카카오 로그인한 계정으로 테스트 메시지를 보낼 수 있습니다.
+          </p>
+          <div className="flex items-center gap-3">
+            <Input
+              placeholder="테스트 메시지 입력..."
+              value={kakaoMessage}
+              onChange={(e) => setKakaoMessage(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleKakaoSend}
+              disabled={sendingKakao}
+              className="bg-[#FEE500] text-[#191919] hover:bg-[#FDD835] shrink-0"
+            >
+              {sendingKakao ? "전송 중..." : "카카오톡 전송"}
+            </Button>
           </div>
-
-          {!apiConnected && (
-            <div className="mt-4 grid sm:grid-cols-2 gap-3 p-3 rounded-lg bg-muted">
-              <div className="space-y-1">
-                <Label className="text-xs">카카오 비즈메시지 API Key</Label>
-                <Input placeholder="ak_xxxxxxxxxxxxxxxx" className="h-8 text-sm" disabled={!apiConnected} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">발신번호</Label>
-                <Input placeholder="02-1234-5678" className="h-8 text-sm" disabled={!apiConnected} />
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Test Send */}
+      {/* SMS Test Send */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Send className="h-4 w-4" />
-            테스트 발송
+            SMS 테스트 발송
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3">
             <Input
-              placeholder="테스트 수신 번호 (010-xxxx-xxxx)"
+              placeholder="수신 번호 (010-xxxx-xxxx)"
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               className="max-w-xs"
             />
             <p className="text-xs text-muted-foreground">
-              아래 템플릿의 '테스트' 버튼으로 발송
+              SMS 템플릿의 '테스트' 버튼으로 발송 (Solapi)
             </p>
           </div>
         </CardContent>
@@ -218,7 +271,7 @@ export default function NotificationsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleTestSend(t.id)}
+                      onClick={() => handleTestSend(t)}
                       disabled={sending === t.id}
                     >
                       {sending === t.id ? "전송 중..." : "테스트"}
@@ -241,13 +294,30 @@ export default function NotificationsPage() {
       {/* Integration Guide */}
       <Card className="bg-muted/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">연동 가이드</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            연동 상태
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>1. <strong>카카오 비즈니스</strong>에서 채널을 생성하고 비즈메시지 API 키를 발급받으세요.</p>
-          <p>2. 위 <strong>API 키 설정</strong>에 발급받은 키와 발신번호를 입력하세요.</p>
-          <p>3. <strong>테스트 발송</strong>으로 정상 동작을 확인한 후, 템플릿을 활성화하세요.</p>
-          <p>4. 활성화된 템플릿은 트리거 조건에 따라 <strong>자동으로 발송</strong>됩니다.</p>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-yellow-500" />
+            <span className="font-medium">카카오톡 나에게 보내기</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">연동됨</span>
+            <span className="text-xs text-muted-foreground">카카오 로그인 시 자동 활성화</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-blue-500" />
+            <span className="font-medium">SMS (Solapi)</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">연동됨</span>
+            <span className="text-xs text-muted-foreground">발신번호 등록 후 실발송 가능</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-yellow-500" />
+            <span className="font-medium">카카오 알림톡</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">준비 중</span>
+            <span className="text-xs text-muted-foreground">비즈니스 채널 연결 후 활성화</span>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -66,6 +66,24 @@ function LoginForm() {
           <p className="text-sm text-muted-foreground mt-1">학원 상담 전환 OS</p>
         </div>
 
+        {/* Kakao Login */}
+        <a
+          href={`/api/auth/kakao?redirect=${encodeURIComponent(redirect)}`}
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-[#FEE500] px-4 py-2.5 text-sm font-medium text-[#191919] hover:bg-[#FDD835] transition-colors"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#191919" d="M9 1C4.582 1 1 3.877 1 7.393c0 2.227 1.474 4.18 3.693 5.292l-.937 3.426a.246.246 0 0 0 .37.274l3.89-2.574c.32.03.645.048.984.048 4.418 0 8-2.877 8-6.466C17 3.877 13.418 1 9 1"/></svg>
+          카카오 로그인
+        </a>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">또는</span>
+          </div>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
