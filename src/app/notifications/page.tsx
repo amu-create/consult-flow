@@ -107,6 +107,11 @@ export default function NotificationsPage() {
         const data = await res.json();
         if (data.success) {
           toast.success("카카오톡으로 전송했습니다!", { description: "카카오톡 앱을 확인하세요." });
+        } else if (data.needsConsent && data.consentUrl) {
+          toast.error("카카오톡 메시지 권한이 필요합니다.", {
+            description: "카카오 재로그인 페이지로 이동합니다.",
+          });
+          setTimeout(() => { window.location.href = data.consentUrl; }, 1500);
         } else {
           toast.error(data.error || "전송 실패", {
             description: data.error?.includes("카카오 로그인") ? "로그아웃 후 카카오 로그인으로 다시 접속해주세요." : undefined,
@@ -162,6 +167,11 @@ export default function NotificationsPage() {
       if (data.success) {
         toast.success("카카오톡으로 전송했습니다!");
         setKakaoMessage("");
+      } else if (data.needsConsent && data.consentUrl) {
+        toast.error("카카오톡 메시지 권한이 필요합니다.", {
+          description: "카카오 재로그인 페이지로 이동합니다.",
+        });
+        setTimeout(() => { window.location.href = data.consentUrl; }, 1500);
       } else {
         toast.error(data.error || "전송 실패");
       }

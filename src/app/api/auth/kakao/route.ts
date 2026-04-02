@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     response_type: "code",
     scope: "talk_message",
     state: redirect,
+    prompt: "consent",
   });
 
   return Response.redirect(`https://kauth.kakao.com/oauth/authorize?${params}`);

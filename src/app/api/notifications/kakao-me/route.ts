@@ -59,6 +59,19 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: true, message: "카카오톡으로 전송되었습니다." });
     }
 
+    // -401: not registered user, -402: insufficient scopes (talk_message not consented)
+    if (data.code === -401 || data.code === -402 || res.status === 401 || res.status === 403) {
+      const consentUrl = `/api/auth/kakao?redirect=/notifications`;
+      return Response.json(
+        {
+          error: "카카오톡 메시지 권한이 없습니다. 카카오 재로그인이 필요합니다.",
+          needsConsent: true,
+          consentUrl,
+        },
+        { status: 403 }
+      );
+    }
+
     return Response.json(
       { error: data.msg || `카카오 에러 (code: ${data.code || data.result_code})`, detail: data },
       { status: 400 }
