@@ -59,9 +59,27 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    const data = await res.json();
+    const responseText = await res.text();
+    console.log("[solapi] status:", res.status, "body:", responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return Response.json({ error: `Solapi 응답 파싱 실패: ${responseText}` }, { status: 500 });
+    }
 
     if (res.ok) {
+      // Check for individual message failures
+      const failed = data.failedMessageList || [];
+      if (failed.length > 0) {
+        console.log("[solapi] failed messages:", JSON.stringify(failed));
+        return Response.json({
+          success: false,
+          error: `발송 실패: ${failed[0]?.statusMessage || JSON.stringify(failed[0])}`,
+          detail: data
+        });
+      }
       return Response.json({ success: true, data });
     }
 
