@@ -24,7 +24,12 @@
       "Bash(curl -k -s -o /dev/null -w \"%{http_code} %{redirect_url}\" \"https://consult-flow-amu-creates-projects.vercel.app/api/auth/kakao\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_5Bqnp4iA6BkuMwzu5vXBqh2ZuBuK\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_7yGg5sfEZojjkrd2vXewUbwtMDWS\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_6iQi8xf4NE3Uc3j7VoN9r1VxgH8E\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_H93A15QKWJtcsDPu8w4g2eAueUY2\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s -X POST \"https://api.vercel.com/v10/projects/consult-flow/domains\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow-app.vercel.app\"\"\"\"}')"
     ],
     "deny": [
       "Read(./.env)",
