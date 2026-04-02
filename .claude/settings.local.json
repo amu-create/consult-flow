@@ -1,10 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Read(//d/Users/Portfolio/**)",
-      "Bash(npx create-next-app@latest consult-flow --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npx create-next-app@latest consult-flow:*)",
       "Bash(npm install:*)",
-      "Bash(npx shadcn@latest init -d --force)"
-    ]
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash(npx tsx:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:3000/api/leads)",
+      "Bash(node -e \"const d=require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\); const leads=JSON.parse\\(d\\); leads.forEach\\(l => console.log\\(l.id, l.studentName\\)\\);\")",
+      "Bash(npx next:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ],
+    "defaultMode": "acceptEdits"
   }
 }

@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("STAFF") // OWNER | MANAGER | STAFF
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  consultations Consultation[]
+  assignedLeads Lead[]         @relation("AssignedLeads")
+  tasks         FollowUpTask[] @relation("AssignedTasks")
+  statusLogs    StatusLog[]
+  dropOffReasons DropOffReason[]
+
+  @@map("users")
+}
+
+model Lead {
+  id             String   @id @default(cuid())
+  studentName    String
+  grade          String
+  subject        String
+  parentName     String?
+  parentPhone    String
+  parentRelation String?  @default("어머니")
+  inquirySource  String   // KAKAO | PHONE | VISIT | REFERRAL | ONLINE | FLYER | OTHER
+  status         String   @default("NEW_INQUIRY")
+  interestScore  Int      @default(0)
+  assignedTo     String?
+  competitorInfo String?
+  currentLevel   String?
+  memo           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignedUser   User?          @relation("AssignedLeads", fields: [assignedTo], references: [id])
+  consultations  Consultation[]
+  tasks          FollowUpTask[]
+  statusLogs     StatusLog[]
+  dropOffReason  DropOffReason?
+
+  @@map("leads")
+}
+
+model Consultation {
+  id              String   @id @default(cuid())
+  leadId          String
+  channel         String   // KAKAO | PHONE | SMS | VISIT | OTHER
+  content         String
+  interestSignals String?  // JSON array
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  lead    Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator User         @relation(fields: [createdBy], references: [id])
+  task    FollowUpTask?
+
+  @@map("consultations")
+}
+
+model FollowUpTask {
+  id             String    @id @default(cuid())
+  leadId         String
+  consultationId String?   @unique
+  assignedTo     String
+  taskType       String    @default("CALL") // CALL | SMS | KAKAO | VISIT_REMIND | SEND_INFO | OTHER
+  description    String
+  dueDate        DateTime
+  priority       String    @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status         String    @default("PENDING") // PENDING | COMPLETED | OVERDUE | CANCELLED
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignee     User          @relation("AssignedTasks", fields: [assignedTo], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+
+  @@map("follow_up_tasks")
+}
+
+model StatusLog {
+  id         String   @id @default(cuid())
+  leadId     String
+  fromStatus String
+  toStatus   String
+  changedBy  String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  lead    Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  changer User @relation(fields: [changedBy], references: [id])
+
+  @@map("status_logs")
+}
+
+model DropOffReason {
+  id        String   @id @default(cuid())
+  leadId    String   @unique
+  reasons   String   // JSON array of reason codes
+  detailMemo String?
+  canRetry  Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+
+  lead    Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("drop_off_reasons")
+}
