@@ -15,7 +15,16 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(curl -s http://localhost:3000/api/leads)",
       "Bash(node -e \"const d=require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\); const leads=JSON.parse\\(d\\); leads.forEach\\(l => console.log\\(l.id, l.studentName\\)\\);\")",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(curl -k -s -X POST \"https://api.vercel.com/v13/deployments\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"project\"\"\"\":\"\"\"\"prj_ZAEnVN6vcoTOypn6Bc0VueTArd8F\"\"\"\",\"\"\"\"gitSource\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"github\"\"\"\",\"\"\"\"org\"\"\"\":\"\"\"\"amu-create\"\"\"\",\"\"\"\"repo\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"ref\"\"\"\":\"\"\"\"master\"\"\"\"}}')",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_AuHUkF7gM5BaWdxRF5bYwmF5goNp\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s \"https://api.vercel.com/v9/projects/consult-flow/env\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s -X POST \"https://api.vercel.com/v13/deployments\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"project\"\"\"\":\"\"\"\"prj_ZAEnVN6vcoTOypn6Bc0VueTArd8F\"\"\"\",\"\"\"\"gitSource\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"github\"\"\"\",\"\"\"\"org\"\"\"\":\"\"\"\"amu-create\"\"\"\",\"\"\"\"repo\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"ref\"\"\"\":\"\"\"\"master\"\"\"\"},\"\"\"\"target\"\"\"\":\"\"\"\"production\"\"\"\"}')",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_CPzVKWcs3Gj16FtyzJu2HAjQA66i\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(curl -k -s -o /dev/null -w \"%{http_code} %{redirect_url}\" \"https://consult-flow-amu-creates-projects.vercel.app/api/auth/kakao\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [
       "Read(./.env)",

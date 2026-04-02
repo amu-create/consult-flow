@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
 const KAKAO_REST_KEY = process.env.KAKAO_REST_API_KEY!;
+const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://consult-flow-amu-creates-projects.vercel.app";
 const REDIRECT_URI = `${BASE_URL}/api/auth/kakao/callback`;
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -24,20 +25,27 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. Exchange code for token
+    const tokenParams: Record<string, string> = {
+      grant_type: "authorization_code",
+      client_id: KAKAO_REST_KEY,
+      redirect_uri: REDIRECT_URI,
+      code,
+    };
+    if (KAKAO_CLIENT_SECRET) {
+      tokenParams.client_secret = KAKAO_CLIENT_SECRET;
+    }
+
     const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: KAKAO_REST_KEY,
-        redirect_uri: REDIRECT_URI,
-        code,
-      }),
+      body: new URLSearchParams(tokenParams),
     });
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
-      return NextResponse.redirect(new URL(`/login?error=kakao_token_fail`, BASE_URL));
+      console.error("Kakao token exchange failed:", JSON.stringify(tokenData));
+      const errMsg = tokenData.error_description || tokenData.error || "token_fail";
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errMsg)}`, BASE_URL));
     }
 
     // 2. Get user info

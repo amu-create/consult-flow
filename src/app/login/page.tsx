@@ -22,7 +22,8 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const kakaoError = searchParams.get("error");
+  const [error, setError] = useState(kakaoError ? `카카오 로그인 실패: ${kakaoError}` : "");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
