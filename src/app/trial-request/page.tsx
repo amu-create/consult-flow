@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 const DAYS = ["월", "화", "수", "목", "금", "토"];
 
@@ -87,6 +88,16 @@ export default function TrialRequestPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
+        {/* Back to login */}
+        <div className="mb-6">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600 transition-colors"
+          >
+            &larr; 로그인 페이지로
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">

@@ -136,6 +136,20 @@ function LoginForm() {
             <span>비밀번호: demo1234</span>
           </div>
         </div>
+
+        {/* Trial request link for parents */}
+        <div className="pt-2">
+          <div className="border-t" />
+          <div className="pt-4 text-center space-y-1">
+            <p className="text-sm text-muted-foreground">학부모이신가요?</p>
+            <Link
+              href="/trial-request"
+              className="inline-block text-sm font-medium text-violet-600 hover:text-violet-700 transition-colors"
+            >
+              체험 수업 신청하기 &rarr;
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
