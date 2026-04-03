@@ -19,6 +19,7 @@ import {
   Sun,
   LogOut,
   Bell,
+  Brain,
 } from "lucide-react";
 
 const navItems = [
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/leads/kanban", label: "파이프라인", icon: Columns3 },
   { href: "/tasks", label: "할 일", icon: ClipboardList },
   { href: "/analytics", label: "분석", icon: BarChart3 },
+  { href: "/ai-analysis", label: "AI 상담 분석", icon: Brain },
   { href: "/notifications", label: "알림 설정", icon: Bell },
   { href: "/demo-guide", label: "데모 가이드", icon: BookOpen },
 ];

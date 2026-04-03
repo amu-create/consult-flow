@@ -114,10 +114,14 @@ export default function LeadDetailPage({
       const data = await res.json();
       if (data.success) {
         setAiAnalysis(data);
-        fetchLead(); // refresh score
+        fetchLead();
+      } else {
+        const { toast } = await import("sonner");
+        toast.error(data.error || "AI 분석 실패");
       }
     } catch {
-      // ignore
+      const { toast } = await import("sonner");
+      toast.error("AI 분석 중 오류가 발생했습니다.");
     }
     setAiLoading(false);
   }
