@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, use } from "react";
+import { useEffect, useState, useCallback, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   type LeadStatus,
 } from "@/lib/constants";
 import { getNextStatuses } from "@/lib/status-machine";
-import { ArrowLeft, Edit2, Brain, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit2, Brain, Loader2, Mic, MessageSquare, Upload } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -103,6 +103,18 @@ export default function LeadDetailPage({
     recommendation: string;
   } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [inlineText, setInlineText] = useState("");
+  const [inlineFile, setInlineFile] = useState<File | null>(null);
+  const [inlineLoading, setInlineLoading] = useState(false);
+  const [inlineResult, setInlineResult] = useState<{
+    summary: string;
+    transcript?: string;
+    interestScore: number;
+    conversionProbability: number;
+    keyPoints: string[];
+    suggestedActions: string[];
+  } | null>(null);
+  const inlineAudioRef = useRef<HTMLInputElement>(null);
 
   async function handleAiAnalysis() {
     setAiLoading(true);
@@ -124,6 +136,77 @@ export default function LeadDetailPage({
       toast.error("AI 분석 중 오류가 발생했습니다.");
     }
     setAiLoading(false);
+  }
+
+  async function handleInlineAnalysis() {
+    if (!inlineText.trim() && !inlineFile) {
+      const { toast } = await import("sonner");
+      toast.error("텍스트를 입력하거나 음성 파일을 선택하세요.");
+      return;
+    }
+    setInlineLoading(true);
+    setInlineResult(null);
+
+    try {
+      let data;
+
+      if (inlineFile) {
+        // Audio: upload to Vercel Blob then analyze
+        const { upload } = await import("@vercel/blob/client");
+        const blobResult = await upload(inlineFile.name, inlineFile, {
+          access: "public",
+          handleUploadUrl: "/api/ai/blob-upload",
+        });
+        const res = await fetch("/api/ai/analyze-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            blobUrl: blobResult.url,
+            mimeType: inlineFile.type || "audio/webm",
+            context: `${lead?.studentName} ${lead?.grade} ${lead?.subject}`,
+          }),
+        });
+        data = await res.json();
+      } else {
+        // Text analysis
+        const res = await fetch("/api/ai/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "text",
+            text: inlineText,
+            context: `${lead?.studentName} ${lead?.grade} ${lead?.subject}`,
+          }),
+        });
+        data = await res.json();
+      }
+
+      if (data.success) {
+        setInlineResult(data);
+        // Auto-save to this lead
+        await fetch("/api/ai/save-to-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leadId: id,
+            summary: data.summary,
+            transcript: data.transcript || data.extractedText,
+            interestScore: data.interestScore,
+            analysis: data.keyPoints?.join(", "),
+          }),
+        });
+        fetchLead(); // Refresh lead data
+        const { toast } = await import("sonner");
+        toast.success("AI 분석 완료 & 상담 기록 자동 저장!");
+      } else {
+        const { toast } = await import("sonner");
+        toast.error(data.error || "분석 실패");
+      }
+    } catch (err) {
+      const { toast } = await import("sonner");
+      toast.error("분석 중 오류: " + String(err));
+    }
+    setInlineLoading(false);
   }
 
   const fetchLead = useCallback(() => {
@@ -262,6 +345,7 @@ export default function LeadDetailPage({
       <Tabs defaultValue="timeline">
         <TabsList>
           <TabsTrigger value="timeline">상담 타임라인</TabsTrigger>
+          <TabsTrigger value="ai">AI 분석</TabsTrigger>
           <TabsTrigger value="info">기본 정보</TabsTrigger>
           <TabsTrigger value="tasks">다음 액션</TabsTrigger>
           <TabsTrigger value="history">상태 이력</TabsTrigger>
@@ -276,6 +360,96 @@ export default function LeadDetailPage({
             </Button>
           </div>
           <ConsultationTimeline consultations={lead.consultations} leadId={lead.id} />
+        </TabsContent>
+
+        {/* AI Analysis Tab */}
+        <TabsContent value="ai" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">상담 내용 AI 분석</CardTitle>
+              <p className="text-xs text-muted-foreground">텍스트를 입력하거나 음성 파일을 올리면 AI가 분석하고 이 리드에 자동 저장합니다.</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <textarea
+                value={inlineText}
+                onChange={(e) => setInlineText(e.target.value)}
+                rows={4}
+                placeholder="상담 내용을 붙여넣으세요..."
+                className="w-full rounded-lg border p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+              <div className="flex gap-2">
+                <div
+                  onClick={() => inlineAudioRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm cursor-pointer hover:border-violet-400 hover:bg-violet-50/50 transition-all flex-1"
+                >
+                  <Mic className="h-4 w-4 text-gray-400" />
+                  {inlineFile ? (
+                    <span className="text-violet-600">{inlineFile.name} ({(inlineFile.size / 1024 / 1024).toFixed(1)}MB)</span>
+                  ) : (
+                    <span className="text-gray-400">또는 음성 파일 선택</span>
+                  )}
+                </div>
+                <input
+                  ref={inlineAudioRef}
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => { setInlineFile(e.target.files?.[0] || null); setInlineText(""); }}
+                />
+                <Button
+                  onClick={handleInlineAnalysis}
+                  disabled={inlineLoading || (!inlineText.trim() && !inlineFile)}
+                  className="bg-violet-600 hover:bg-violet-700"
+                >
+                  {inlineLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />분석 중</>
+                  ) : (
+                    <><Brain className="h-4 w-4 mr-1" />AI 분석</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {inlineResult && (
+            <Card className="border-violet-200 bg-violet-50/30">
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">관심도</p>
+                    <p className="text-2xl font-bold text-violet-700">{inlineResult.interestScore}<span className="text-sm">/10</span></p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">전환율</p>
+                    <p className="text-2xl font-bold text-green-600">{inlineResult.conversionProbability}<span className="text-sm">%</span></p>
+                  </div>
+                  <div className="flex-1 text-right">
+                    <span className="inline-block rounded-full bg-green-100 text-green-700 text-xs px-2 py-1">상담 기록 자동 저장됨</span>
+                  </div>
+                </div>
+                <p className="text-sm">{inlineResult.summary}</p>
+                {inlineResult.transcript && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-violet-600 font-medium">대화 내용 보기</summary>
+                    <p className="mt-2 whitespace-pre-wrap bg-white rounded-lg p-3 border text-xs">{inlineResult.transcript}</p>
+                  </details>
+                )}
+                {inlineResult.suggestedActions?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-violet-800 mb-1">추천 후속 조치</p>
+                    <ul className="space-y-1">
+                      {inlineResult.suggestedActions.map((a, i) => (
+                        <li key={i} className="text-xs flex items-start gap-1">
+                          <span className="rounded-full bg-violet-200 text-violet-700 w-4 h-4 flex items-center justify-center shrink-0 text-[10px]">{i+1}</span>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Info Tab */}

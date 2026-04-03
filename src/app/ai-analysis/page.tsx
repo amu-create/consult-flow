@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { INQUIRY_SOURCES } from "@/lib/constants";
 import { toast } from "sonner";
 import {
   Brain,
@@ -23,6 +38,9 @@ import {
   CheckCircle,
   Target,
   Lightbulb,
+  UserPlus,
+  Save,
+  ExternalLink,
 } from "lucide-react";
 
 interface AnalysisResult {
@@ -48,8 +66,33 @@ export default function AiAnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [leads, setLeads] = useState<{ id: string; studentName: string; parentPhone: string; grade: string }[]>([]);
+  const [selectedLeadId, setSelectedLeadId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  // Load leads list when save modal opens
+  useEffect(() => {
+    if (showSaveModal) {
+      fetch("/api/leads?pageSize=100")
+        .then((r) => r.json())
+        .then((data) => setLeads(data.leads || []));
+    }
+  }, [showSaveModal]);
+
+  // Load users when lead creation modal opens
+  useEffect(() => {
+    if (showLeadModal) {
+      fetch("/api/users")
+        .then((r) => r.json())
+        .then(setUsers);
+    }
+  }, [showLeadModal]);
 
   async function compressImage(file: File, maxSizeMB = 1): Promise<File> {
     return new Promise((resolve) => {
@@ -188,6 +231,83 @@ export default function AiAnalysisPage() {
     }
     setLoading(false);
     setStage("");
+  }
+
+  async function handleCreateLead(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    const form = new FormData(e.currentTarget);
+    const data = {
+      studentName: form.get("studentName"),
+      grade: form.get("grade"),
+      subject: form.get("subject"),
+      parentName: form.get("parentName"),
+      parentPhone: form.get("parentPhone"),
+      parentRelation: form.get("parentRelation"),
+      inquirySource: form.get("inquirySource"),
+      assignedTo: form.get("assignedTo") || undefined,
+      memo: result
+        ? `[AI 분석] 관심도: ${result.interestScore}/10, 전환율: ${result.conversionProbability}%\n${result.summary}`
+        : undefined,
+      interestScore: result?.interestScore || 0,
+    };
+
+    const res = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+      const created = await res.json();
+      // Also save the consultation to the new lead
+      if (result) {
+        await fetch("/api/ai/save-to-lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leadId: created.id,
+            summary: result.summary,
+            transcript: result.transcript || result.extractedText,
+            interestScore: result.interestScore,
+            analysis: result.keyPoints.join(", "),
+          }),
+        });
+      }
+      toast.success("리드가 등록되었습니다!");
+      setShowLeadModal(false);
+      router.push(`/leads/${created.id}`);
+    } else {
+      toast.error("리드 등록에 실패했습니다.");
+    }
+    setSaving(false);
+  }
+
+  async function handleSaveToLead() {
+    if (!selectedLeadId || !result) return;
+    setSaving(true);
+
+    const res = await fetch("/api/ai/save-to-lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        leadId: selectedLeadId,
+        summary: result.summary,
+        transcript: result.transcript || result.extractedText,
+        interestScore: result.interestScore,
+        analysis: result.keyPoints.join(", "),
+      }),
+    });
+
+    if (res.ok) {
+      toast.success("상담 기록이 저장되었습니다!");
+      setShowSaveModal(false);
+      router.push(`/leads/${selectedLeadId}`);
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "저장에 실패했습니다.");
+    }
+    setSaving(false);
   }
 
   function getScoreColor(score: number) {
@@ -585,8 +705,164 @@ export default function AiAnalysisPage() {
               </ul>
             </CardContent>
           </Card>
+
+          {/* Action Buttons */}
+          <Card className="border-green-200 bg-green-50/30">
+            <CardContent className="pt-6">
+              <p className="text-sm font-medium text-green-800 mb-3">이 분석 결과를 활용하세요</p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowLeadModal(true)}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  신규 리드 등록
+                </Button>
+                <Button
+                  onClick={() => setShowSaveModal(true)}
+                  variant="outline"
+                  className="flex-1 border-green-300 text-green-700 hover:bg-green-100"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  기존 리드에 저장
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
+
+      {/* Create Lead Modal (pre-filled with AI data) */}
+      <Dialog open={showLeadModal} onOpenChange={setShowLeadModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>AI 분석 결과로 리드 등록</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateLead} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="ai-studentName">학생 이름 *</Label>
+                <Input id="ai-studentName" name="studentName" required />
+              </div>
+              <div>
+                <Label htmlFor="ai-grade">학년 *</Label>
+                <Input id="ai-grade" name="grade" placeholder="예: 중2" required />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="ai-subject">관심 과목 *</Label>
+                <Input id="ai-subject" name="subject" placeholder="예: 영어" required />
+              </div>
+              <div>
+                <Label htmlFor="ai-inquirySource">문의 경로 *</Label>
+                <Select name="inquirySource" defaultValue="PHONE">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(INQUIRY_SOURCES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label as string}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="ai-parentName">학부모 이름</Label>
+                <Input id="ai-parentName" name="parentName" />
+              </div>
+              <div>
+                <Label htmlFor="ai-parentPhone">연락처 *</Label>
+                <Input id="ai-parentPhone" name="parentPhone" placeholder="010-0000-0000" required />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>관계</Label>
+                <Select name="parentRelation" defaultValue="어머니">
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="어머니">어머니</SelectItem>
+                    <SelectItem value="아버지">아버지</SelectItem>
+                    <SelectItem value="본인">본인</SelectItem>
+                    <SelectItem value="기타">기타</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>담당자</Label>
+                <Select name="assignedTo">
+                  <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {result && (
+              <div className="rounded-lg bg-violet-50 p-3 text-sm">
+                <p className="font-medium text-violet-800 mb-1">AI 분석 자동 반영</p>
+                <p className="text-violet-600">관심도 {result.interestScore}/10 | 전환율 {result.conversionProbability}% | 분석 요약이 메모에 저장됩니다</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowLeadModal(false)}>취소</Button>
+              <Button type="submit" disabled={saving} className="bg-green-600 hover:bg-green-700">
+                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />등록 중...</> : "리드 등록"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save to Existing Lead Modal */}
+      <Dialog open={showSaveModal} onOpenChange={setShowSaveModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>기존 리드에 상담 기록 저장</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>리드 선택 *</Label>
+              <Select value={selectedLeadId} onValueChange={(v) => setSelectedLeadId(v || "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="리드를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      {lead.studentName} ({lead.grade}) - {lead.parentPhone}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {result && (
+              <div className="rounded-lg bg-violet-50 p-3 text-sm">
+                <p className="font-medium text-violet-800 mb-1">저장될 내용</p>
+                <p className="text-violet-600">AI 분석 요약 + 대화 내용 + 관심도 점수({result.interestScore}/10)</p>
+                <p className="text-violet-500 text-xs mt-1">3일 후 후속 상담 할 일이 자동 생성됩니다</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSaveModal(false)}>취소</Button>
+              <Button
+                onClick={handleSaveToLead}
+                disabled={saving || !selectedLeadId}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />저장 중...</> : <><Save className="h-4 w-4 mr-2" />저장</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
