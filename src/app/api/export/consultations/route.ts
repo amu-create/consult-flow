@@ -12,16 +12,16 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const headers = ["학생명", "상담일", "채널", "내용", "관심신호", "상담자"];
+  const headers = ["학생이름", "상담채널", "상담내용", "관심신호", "담당자", "상담일시"];
   const rows = consultations.map((c) => [
     c.lead.studentName,
-    new Date(c.createdAt).toLocaleDateString("ko-KR"),
     CHANNELS[c.channel as keyof typeof CHANNELS] ?? c.channel,
     c.content,
     c.interestSignals
       ? (JSON.parse(c.interestSignals) as string[]).join(", ")
       : "",
     c.creator.name,
+    new Date(c.createdAt).toLocaleString("ko-KR"),
   ]);
 
   const csv = "\uFEFF" + [headers, ...rows].map((row) =>

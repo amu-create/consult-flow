@@ -1,53 +1,75 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const from = request.nextUrl.searchParams.get("from");
-  const to = request.nextUrl.searchParams.get("to");
-  const dateFilter: Record<string, unknown> = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to + "T23:59:59");
-  const hasDate = Object.keys(dateFilter).length > 0;
-
-  const leadWhere = hasDate ? { createdAt: dateFilter } : {};
-  const taskWhere = hasDate
-    ? { status: "COMPLETED" as const, completedAt: dateFilter }
-    : { status: "COMPLETED" as const };
-  const consultWhere = hasDate ? { createdAt: dateFilter } : {};
-
-  const [users, leadsByUser, tasksByUser, consultsByUser] = await Promise.all([
-    prisma.user.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true, role: true },
-    }),
-    prisma.lead.groupBy({ by: ["assignedTo"], where: leadWhere, _count: { assignedTo: true } }),
-    prisma.followUpTask.groupBy({ by: ["assignedTo"], where: taskWhere, _count: { assignedTo: true } }),
-    prisma.consultation.groupBy({ by: ["createdBy"], where: consultWhere, _count: { createdBy: true } }),
-  ]);
-
-  const leadsMap: Record<string, number> = {};
-  for (const l of leadsByUser) {
-    if (l.assignedTo) leadsMap[l.assignedTo] = l._count.assignedTo;
-  }
-  const tasksMap: Record<string, number> = {};
-  for (const t of tasksByUser) {
-    tasksMap[t.assignedTo] = t._count.assignedTo;
-  }
-  const consultsMap: Record<string, number> = {};
-  for (const c of consultsByUser) {
-    consultsMap[c.createdBy] = c._count.createdBy;
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const staff = users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    role: u.role,
-    leadsManaged: leadsMap[u.id] ?? 0,
-    tasksCompleted: tasksMap[u.id] ?? 0,
-    consultationsDone: consultsMap[u.id] ?? 0,
+  const leads = await prisma.lead.findMany({
+    where: { assignedTo: { not: null } },
+    select: {
+      assignedTo: true,
+      status: true,
+      interestScore: true,
+      assignedUser: { select: { id: true, name: true } },
+    },
+  });
+
+  const staffMap = new Map<
+    string,
+    {
+      userId: string;
+      name: string;
+      totalLeads: number;
+      registered: number;
+      dropped: number;
+      scoreSum: number;
+    }
+  >();
+
+  for (const lead of leads) {
+    if (!lead.assignedTo || !lead.assignedUser) continue;
+
+    let entry = staffMap.get(lead.assignedTo);
+    if (!entry) {
+      entry = {
+        userId: lead.assignedUser.id,
+        name: lead.assignedUser.name,
+        totalLeads: 0,
+        registered: 0,
+        dropped: 0,
+        scoreSum: 0,
+      };
+      staffMap.set(lead.assignedTo, entry);
+    }
+
+    entry.totalLeads++;
+    entry.scoreSum += lead.interestScore;
+    if (lead.status === "REGISTERED") entry.registered++;
+    if (lead.status === "DROPPED") entry.dropped++;
+  }
+
+  const staff = Array.from(staffMap.values()).map((s) => ({
+    userId: s.userId,
+    name: s.name,
+    totalLeads: s.totalLeads,
+    registered: s.registered,
+    dropped: s.dropped,
+    conversionRate:
+      s.totalLeads > 0
+        ? Math.round((s.registered / s.totalLeads) * 1000) / 10
+        : 0,
+    avgScore:
+      s.totalLeads > 0
+        ? Math.round((s.scoreSum / s.totalLeads) * 10) / 10
+        : 0,
   }));
 
-  return Response.json({ staff });
+  staff.sort((a, b) => b.totalLeads - a.totalLeads);
+
+  return Response.json(staff);
 }

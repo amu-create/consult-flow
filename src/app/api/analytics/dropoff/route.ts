@@ -1,37 +1,49 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { DROP_OFF_REASONS } from "@/lib/constants";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const from = request.nextUrl.searchParams.get("from");
-  const to = request.nextUrl.searchParams.get("to");
-  const dateFilter: Record<string, unknown> = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to + "T23:59:59");
-  const hasDate = Object.keys(dateFilter).length > 0;
+const REASON_LABELS: Record<string, string> = {
+  PRICE: "가격",
+  SCHEDULE: "시간대",
+  COMPETITOR: "경쟁학원",
+  DISTANCE: "거리",
+  LOST_INTEREST: "관심상실",
+  NO_RESPONSE: "연락두절",
+  OTHER: "기타",
+};
+
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const dropOffs = await prisma.dropOffReason.findMany({
-    ...(hasDate ? { where: { createdAt: dateFilter } } : {}),
+    where: { lead: { status: "DROPPED" } },
     select: { reasons: true },
   });
 
   const countMap: Record<string, number> = {};
+
   for (const d of dropOffs) {
-    const reasons = JSON.parse(d.reasons) as string[];
-    for (const r of reasons) {
-      countMap[r] = (countMap[r] ?? 0) + 1;
+    try {
+      const reasons = JSON.parse(d.reasons) as string[];
+      for (const r of reasons) {
+        countMap[r] = (countMap[r] ?? 0) + 1;
+      }
+    } catch {
+      // Skip malformed JSON
     }
   }
 
   const reasons = Object.entries(countMap)
-    .map(([code, count]) => ({
-      code,
-      label: DROP_OFF_REASONS[code as keyof typeof DROP_OFF_REASONS] ?? code,
+    .map(([reason, count]) => ({
+      reason,
+      label: REASON_LABELS[reason] ?? reason,
       count,
     }))
     .sort((a, b) => b.count - a.count);
 
-  return Response.json({ reasons, totalDropped: dropOffs.length });
+  return Response.json(reasons);
 }

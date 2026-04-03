@@ -29,7 +29,9 @@
       "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_7yGg5sfEZojjkrd2vXewUbwtMDWS\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
       "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_6iQi8xf4NE3Uc3j7VoN9r1VxgH8E\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
       "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_H93A15QKWJtcsDPu8w4g2eAueUY2\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s -X POST \"https://api.vercel.com/v10/projects/consult-flow/domains\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow-app.vercel.app\"\"\"\"}')"
+      "Bash(curl -k -s -X POST \"https://api.vercel.com/v10/projects/consult-flow/domains\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow-app.vercel.app\"\"\"\"}')",
+      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_Cq6s7sHuqeknyARNLQiFvQTH8ekf\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
+      "Bash(npx vercel:*)"
     ],
     "deny": [
       "Read(./.env)",

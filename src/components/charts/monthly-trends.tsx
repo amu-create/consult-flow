@@ -12,28 +12,38 @@ import {
   CartesianGrid,
 } from "recharts";
 
-interface MonthData {
+export interface MonthlyTrendItem {
   month: string;
-  label: string;
-  newInquiries: number;
+  newLeads: number;
   registered: number;
   dropped: number;
 }
 
-export function MonthlyTrends({ months }: { months: MonthData[] }) {
+export function MonthlyTrends({ data }: { data: MonthlyTrendItem[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[300px] text-sm text-muted-foreground">
+        데이터 없음
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={months} margin={{ left: 0, right: 10 }}>
+        <ComposedChart data={data} margin={{ left: 0, right: 10 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-          <XAxis dataKey="label" fontSize={12} />
+          <XAxis dataKey="month" fontSize={12} />
           <YAxis fontSize={12} allowDecimals={false} />
           <Tooltip contentStyle={{ fontSize: 12 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Legend
+            wrapperStyle={{ fontSize: 12 }}
+            verticalAlign="bottom"
+          />
           <Bar
-            dataKey="newInquiries"
-            name="신규 문의"
-            fill="#3b82f6"
+            dataKey="newLeads"
+            name="신규 리드"
+            fill="#7c3aed"
             radius={[4, 4, 0, 0]}
           />
           <Line

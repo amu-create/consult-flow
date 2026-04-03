@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   if (pageParam && pageSizeParam) {
     const page = Math.max(1, parseInt(pageParam) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeParam) || 20));
+    const pageSize = Math.min(200, Math.max(1, parseInt(pageSizeParam) || 20));
 
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({

@@ -1,28 +1,32 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { INQUIRY_SOURCES } from "@/lib/constants";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const from = request.nextUrl.searchParams.get("from");
-  const to = request.nextUrl.searchParams.get("to");
-  const dateFilter: Record<string, unknown> = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to + "T23:59:59");
-  const hasDate = Object.keys(dateFilter).length > 0;
+const SOURCE_LABELS: Record<string, string> = {
+  KAKAO: "카카오",
+  PHONE: "전화",
+  VISIT: "방문",
+  REFERRAL: "소개",
+  ONLINE: "온라인",
+  FLYER: "전단지",
+  OTHER: "기타",
+};
 
-  const where = hasDate ? { createdAt: dateFilter } : {};
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const [totalBySource, registeredBySource] = await Promise.all([
     prisma.lead.groupBy({
       by: ["inquirySource"],
-      where,
       _count: { inquirySource: true },
     }),
     prisma.lead.groupBy({
       by: ["inquirySource"],
-      where: { ...where, status: "REGISTERED" },
+      where: { status: "REGISTERED" },
       _count: { inquirySource: true },
     }),
   ]);
@@ -37,13 +41,14 @@ export async function GET(request: NextRequest) {
     const registered = regMap[s.inquirySource] ?? 0;
     return {
       source: s.inquirySource,
-      label: INQUIRY_SOURCES[s.inquirySource as keyof typeof INQUIRY_SOURCES] ?? s.inquirySource,
+      label: SOURCE_LABELS[s.inquirySource] ?? s.inquirySource,
       total,
       registered,
-      conversionRate: total > 0 ? Math.round((registered / total) * 100) : 0,
+      conversionRate: total > 0 ? Math.round((registered / total) * 1000) / 10 : 0,
     };
   });
 
   sources.sort((a, b) => b.total - a.total);
-  return Response.json({ sources });
+
+  return Response.json(sources);
 }

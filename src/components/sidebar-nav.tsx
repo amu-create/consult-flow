@@ -20,16 +20,23 @@ import {
   LogOut,
   Bell,
   Brain,
+  Calendar,
+  Calculator,
+  RefreshCw,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/leads", label: "리드 관리", icon: Users },
   { href: "/leads/kanban", label: "파이프라인", icon: Columns3 },
+  { href: "/calendar", label: "체험 일정", icon: Calendar },
   { href: "/tasks", label: "할 일", icon: ClipboardList },
   { href: "/analytics", label: "분석", icon: BarChart3 },
   { href: "/ai-analysis", label: "AI 상담 분석", icon: Brain },
+  { href: "/automation", label: "자동화", icon: Bell },
+  { href: "/fee-simulator", label: "수강료 계산", icon: Calculator },
   { href: "/notifications", label: "알림 설정", icon: Bell },
+  { href: "/re-enrollment", label: "재등록 관리", icon: RefreshCw },
   { href: "/demo-guide", label: "데모 가이드", icon: BookOpen },
 ];
 
@@ -124,7 +131,7 @@ export function SidebarNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Hide sidebar on landing, login, register pages
-  if (pathname === "/" || pathname === "/login" || pathname === "/register") return null;
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/trial-request") return null;
 
   return (
     <>

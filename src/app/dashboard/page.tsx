@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { InterestBadge } from "@/components/interest-badge";
 import { StatusDonut } from "@/components/charts/status-donut";
-import { TASK_TYPES } from "@/lib/constants";
+import { TASK_TYPES, STATUS_LABELS, type LeadStatus } from "@/lib/constants";
 import {
   Users,
   UserPlus,
@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Clock,
   Flame,
+  MessageSquare,
+  CalendarClock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -30,6 +32,7 @@ interface DashboardData {
     avgConversionDays: number;
     weeklyConsultations: number;
     weeklyTasksCompleted: number;
+    weeklyActivity: number;
   };
   todayTasks: Array<{
     id: string;
@@ -60,6 +63,12 @@ interface DashboardData {
     status: string;
     interestScore: number;
     assignedUser: { id: string; name: string } | null;
+  }>;
+  recentLeads: Array<{
+    id: string;
+    studentName: string;
+    status: string;
+    createdAt: string;
   }>;
   statusCounts: Record<string, number>;
 }
@@ -166,7 +175,13 @@ export default function DashboardPage() {
             <CardTitle className="text-base">상태 분포</CardTitle>
           </CardHeader>
           <CardContent>
-            <StatusDonut statusCounts={data.statusCounts} />
+            <StatusDonut
+              data={Object.entries(data.statusCounts).map(([status, count]) => ({
+                status,
+                label: STATUS_LABELS[status as LeadStatus] ?? status,
+                count,
+              }))}
+            />
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
@@ -174,10 +189,14 @@ export default function DashboardPage() {
             <CardTitle className="text-base">핵심 지표</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <div className="rounded-lg bg-blue-50 p-4 text-center">
                 <p className="text-3xl font-bold text-blue-700">{summary.avgConversionDays}</p>
                 <p className="text-xs text-blue-600 mt-1">평균 전환 소요일</p>
+              </div>
+              <div className="rounded-lg bg-violet-50 p-4 text-center">
+                <p className="text-3xl font-bold text-violet-700">{summary.weeklyActivity}</p>
+                <p className="text-xs text-violet-600 mt-1">최근 7일 상담</p>
               </div>
               <div className="rounded-lg bg-green-50 p-4 text-center">
                 <p className="text-3xl font-bold text-green-700">{summary.weeklyConsultations}</p>
@@ -291,6 +310,44 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(lead.updatedAt), {
+                      addSuffix: true,
+                      locale: ko,
+                    })}
+                  </span>
+                </Link>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Leads */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-4 w-4 text-blue-500" />
+              최근 리드
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.recentLeads.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                등록된 리드가 없습니다
+              </p>
+            ) : (
+              data.recentLeads.map((lead) => (
+                <Link
+                  key={lead.id}
+                  href={`/leads/${lead.id}`}
+                  className="flex items-center justify-between rounded-md border p-3 hover:bg-accent transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {lead.studentName}
+                    </span>
+                    <StatusBadge status={lead.status} />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(lead.createdAt), {
                       addSuffix: true,
                       locale: ko,
                     })}

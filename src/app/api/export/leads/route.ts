@@ -11,17 +11,19 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const headers = ["학생명", "학년", "과목", "상태", "관심도", "담당자", "학부모명", "연락처", "문의경로", "등록일"];
+  const headers = ["학생이름", "학년", "과목", "학부모이름", "연락처", "관계", "문의경로", "상태", "관심도", "담당자", "메모", "등록일"];
   const rows = leads.map((lead) => [
     lead.studentName,
     lead.grade,
     lead.subject,
+    lead.parentName ?? "",
+    lead.parentPhone,
+    lead.parentRelation ?? "",
+    INQUIRY_SOURCES[lead.inquirySource as keyof typeof INQUIRY_SOURCES] ?? lead.inquirySource,
     STATUS_LABELS[lead.status as LeadStatus] ?? lead.status,
     String(lead.interestScore),
     lead.assignedUser?.name ?? "",
-    lead.parentName ?? "",
-    lead.parentPhone,
-    INQUIRY_SOURCES[lead.inquirySource as keyof typeof INQUIRY_SOURCES] ?? lead.inquirySource,
+    lead.memo ?? "",
     new Date(lead.createdAt).toLocaleDateString("ko-KR"),
   ]);
 

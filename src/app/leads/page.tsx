@@ -92,12 +92,22 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <a href="/api/export/leads" download>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-1" />
-              CSV
-            </Button>
-          </a>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const res = await fetch("/api/export/leads");
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "leads.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            CSV 내보내기
+          </Button>
           <Button onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4 mr-1" />
             신규 리드

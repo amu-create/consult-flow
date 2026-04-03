@@ -1,72 +1,38 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-const FUNNEL_STAGES = [
-  "NEW_INQUIRY",
-  "INITIAL_CONSULT",
-  "IN_PROGRESS",
-  "TRIAL_BOOKED",
-  "TRIAL_DONE",
-  "REGISTERED",
+const FUNNEL_ORDER = [
+  { status: "NEW_INQUIRY", label: "신규문의" },
+  { status: "CONSULTING", label: "상담중" },
+  { status: "TRIAL_BOOKED", label: "체험예약" },
+  { status: "TRIAL_DONE", label: "체험완료" },
+  { status: "REGISTERED", label: "등록완료" },
+  { status: "DROPPED", label: "이탈" },
 ] as const;
 
-const STAGE_LABELS: Record<string, string> = {
-  NEW_INQUIRY: "신규문의",
-  INITIAL_CONSULT: "초기상담",
-  IN_PROGRESS: "상담진행",
-  TRIAL_BOOKED: "체험예약",
-  TRIAL_DONE: "체험완료",
-  REGISTERED: "등록완료",
-};
-
-export async function GET(request: NextRequest) {
-  const from = request.nextUrl.searchParams.get("from");
-  const to = request.nextUrl.searchParams.get("to");
-  const dateFilter: Record<string, unknown> = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to + "T23:59:59");
-  const hasDate = Object.keys(dateFilter).length > 0;
-
-  const [statusCounts, statusLogs] = await Promise.all([
-    prisma.lead.groupBy({
-      by: ["status"],
-      ...(hasDate ? { where: { createdAt: dateFilter } } : {}),
-      _count: { status: true },
-    }),
-    prisma.statusLog.groupBy({
-      by: ["toStatus"],
-      ...(hasDate ? { where: { createdAt: dateFilter } } : {}),
-      _count: { toStatus: true },
-    }),
-  ]);
-
-  const currentMap: Record<string, number> = {};
-  for (const s of statusCounts) {
-    currentMap[s.status] = s._count.status;
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const reachedMap: Record<string, number> = {};
-  for (const s of statusLogs) {
-    reachedMap[s.toStatus] = s._count.toStatus;
-  }
-
-  const totalLeads = Object.values(currentMap).reduce((a, b) => a + b, 0);
-
-  const stages = FUNNEL_STAGES.map((status) => {
-    const current = currentMap[status] ?? 0;
-    const transitioned = reachedMap[status] ?? 0;
-    const totalReached =
-      status === "NEW_INQUIRY" ? totalLeads : current + transitioned;
-
-    return {
-      status,
-      label: STAGE_LABELS[status],
-      currentCount: current,
-      totalReached: Math.max(totalReached, current),
-    };
+  const counts = await prisma.lead.groupBy({
+    by: ["status"],
+    _count: { status: true },
   });
 
-  return Response.json({ stages });
+  const countMap: Record<string, number> = {};
+  for (const c of counts) {
+    countMap[c.status] = c._count.status;
+  }
+
+  const stages = FUNNEL_ORDER.map(({ status, label }) => ({
+    status,
+    label,
+    count: countMap[status] ?? 0,
+  }));
+
+  return Response.json(stages);
 }

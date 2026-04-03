@@ -106,6 +106,19 @@ export async function GET() {
     }),
   ]);
 
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [weeklyActivity, recentLeads] = await Promise.all([
+    prisma.consultation.count({
+      where: { createdAt: { gte: sevenDaysAgo } },
+    }),
+    prisma.lead.findMany({
+      select: { id: true, studentName: true, status: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
+
   const conversionRate =
     newThisMonth > 0
       ? Math.round((registeredThisMonth / newThisMonth) * 100)
@@ -137,11 +150,13 @@ export async function GET() {
       avgConversionDays,
       weeklyConsultations,
       weeklyTasksCompleted,
+      weeklyActivity,
     },
     todayTasks,
     overdueTasks,
     neglectedLeads,
     hotLeads,
+    recentLeads,
     statusCounts: statusCounts.reduce(
       (acc, item) => {
         acc[item.status] = item._count.status;

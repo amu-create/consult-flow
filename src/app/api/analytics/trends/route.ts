@@ -1,69 +1,46 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const fromParam = request.nextUrl.searchParams.get("from");
-  const toParam = request.nextUrl.searchParams.get("to");
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-  const from = fromParam ? new Date(fromParam) : sixMonthsAgo;
-  const to = toParam ? new Date(toParam + "T23:59:59") : now;
+  const leads = await prisma.lead.findMany({
+    where: { createdAt: { gte: sixMonthsAgo } },
+    select: { createdAt: true, status: true },
+  });
 
-  const [allLeads, statusLogs] = await Promise.all([
-    prisma.lead.findMany({
-      where: { createdAt: { gte: from, lte: to } },
-      select: { createdAt: true, status: true },
-    }),
-    prisma.statusLog.findMany({
-      where: {
-        createdAt: { gte: from, lte: to },
-        toStatus: { in: ["REGISTERED", "DROPPED"] },
-      },
-      select: { toStatus: true, createdAt: true },
-    }),
-  ]);
+  const buckets = new Map<string, { newLeads: number; registered: number; dropped: number }>();
 
-  const months: Array<{
-    month: string;
-    label: string;
-    newInquiries: number;
-    registered: number;
-    dropped: number;
-  }> = [];
-
-  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-  while (cursor <= to) {
-    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-    months.push({
-      month: key,
-      label: `${cursor.getMonth() + 1}월`,
-      newInquiries: 0,
-      registered: 0,
-      dropped: 0,
-    });
-    cursor.setMonth(cursor.getMonth() + 1);
+  // Pre-populate 6 months
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    buckets.set(key, { newLeads: 0, registered: 0, dropped: 0 });
   }
 
-  for (const lead of allLeads) {
+  for (const lead of leads) {
     const d = new Date(lead.createdAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const bucket = months.find((m) => m.month === key);
-    if (bucket) bucket.newInquiries++;
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+
+    bucket.newLeads++;
+    if (lead.status === "REGISTERED") bucket.registered++;
+    if (lead.status === "DROPPED") bucket.dropped++;
   }
 
-  for (const log of statusLogs) {
-    const d = new Date(log.createdAt);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const bucket = months.find((m) => m.month === key);
-    if (bucket) {
-      if (log.toStatus === "REGISTERED") bucket.registered++;
-      if (log.toStatus === "DROPPED") bucket.dropped++;
-    }
-  }
+  const months = Array.from(buckets.entries()).map(([month, data]) => ({
+    month,
+    ...data,
+  }));
 
-  return Response.json({ months });
+  return Response.json(months);
 }
