@@ -163,33 +163,70 @@ export default function AiAnalysisPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "text", text, context }),
         });
-      } else {
-        // File mode: compress image, then send as FormData
+      } else if (mode === "image" && file) {
+        // Image: compress then upload via FormData
+        const compressed = await compressImage(file, 1);
         const formData = new FormData();
-        formData.append("type", mode);
-        if (file && mode === "image") {
-          const compressed = await compressImage(file, 1);
-          formData.append("file", compressed);
-        } else if (file && mode === "audio") {
-          try {
-            const compressed = await compressAudio(file, 3);
-            if (compressed.size > 4 * 1024 * 1024) {
-              toast.error("음성 파일이 너무 큽니다. 3분 이내 녹음을 사용해주세요.");
-              setLoading(false);
-              return;
-            }
-            formData.append("file", compressed);
-          } catch {
-            toast.error("음성 파일 처리에 실패했습니다. 다른 형식을 시도해주세요.");
-            setLoading(false);
-            return;
-          }
-        }
+        formData.append("type", "image");
+        formData.append("file", compressed);
         if (context) formData.append("context", context);
         res = await fetch("/api/ai/analyze", {
           method: "POST",
           body: formData,
         });
+      } else if (mode === "audio" && file) {
+        // Audio: 2-step upload via Gemini File API (no size limit)
+        // Step 1: Get upload URL from server
+        const initRes = await fetch("/api/ai/upload-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type || "audio/mpeg",
+            fileSize: file.size,
+          }),
+        });
+        const initData = await initRes.json();
+        if (!initData.uploadUrl) {
+          toast.error(initData.error || "업로드 초기화 실패");
+          setLoading(false);
+          return;
+        }
+
+        // Step 2: Upload file directly to Google
+        toast.info("음성 파일 업로드 중...");
+        const uploadRes = await fetch(initData.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Length": String(file.size),
+            "X-Goog-Upload-Offset": "0",
+            "X-Goog-Upload-Command": "upload, finalize",
+          },
+          body: file,
+        });
+        const uploadData = await uploadRes.json();
+        const fileUri = uploadData?.file?.uri;
+        if (!fileUri) {
+          toast.error("파일 업로드 실패");
+          setLoading(false);
+          return;
+        }
+
+        // Step 3: Analyze with file URI
+        toast.info("AI 분석 중...");
+        res = await fetch("/api/ai/analyze-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileUri,
+            mimeType: file.type || "audio/mpeg",
+            context,
+          }),
+        });
+      } else {
+        toast.error("파일을 선택해주세요.");
+        setLoading(false);
+        return;
       }
       const responseText = await res.text();
       let data;
@@ -338,7 +375,7 @@ export default function AiAnalysisPage() {
                   <>
                     <Upload className="h-8 w-8 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">클릭하여 음성 파일 업로드</p>
-                    <p className="text-xs text-gray-400">MP3, WAV, M4A, WEBM (최대 25MB)</p>
+                    <p className="text-xs text-gray-400">MP3, WAV, M4A, WEBM (긴 녹음도 OK)</p>
                   </>
                 )}
               </div>
