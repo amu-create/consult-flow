@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
-import { askGemini, askGeminiWithImage } from "@/lib/gemini";
+import { askGemini, askGeminiWithImage, buildAnalysisPrompt } from "@/lib/gemini";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
       const mimeType = file.type || "image/jpeg";
 
       analysisText = await askGeminiWithImage(
-        "이 이미지는 카카오톡 또는 메신저 대화 캡처입니다. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요.",
+        `이 이미지는 카카오톡 또는 메신저 대화 캡처입니다.
+1. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요.
+2. 학원 상담과 무관한 이미지면 "학원 상담 관련 이미지가 아닙니다"라고 말하세요.
+3. 보이는 내용만 추출하고, 없는 내용을 만들어내지 마세요.`,
         base64,
         mimeType
       );
@@ -57,7 +60,10 @@ export async function POST(request: NextRequest) {
       const mimeType = file.type || "audio/webm";
 
       analysisText = await askGeminiWithImage(
-        "이 음성은 학원 상담 통화 녹음입니다. 대화 내용을 텍스트로 변환해주세요. 상담사와 학부모를 구분해서 작성하세요.",
+        `이 음성 파일의 내용을 정확하게 텍스트로 변환해주세요.
+1. 들리는 내용을 그대로 적으세요. 없는 내용을 만들어내지 마세요.
+2. 대화가 있으면 화자를 구분해서 작성하세요.
+3. 학원 상담이 아닌 내용이면 그대로 적고 "학원 상담이 아님"이라고 명시하세요.`,
         base64,
         mimeType
       );
@@ -69,25 +75,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "텍스트, 이미지, 또는 음성 파일을 입력해주세요." }, { status: 400 });
     }
 
-    const contextInfo = context ? `\n학생 정보: ${context}` : "";
-    const prompt = `당신은 학원 상담 전문 AI 분석가입니다. 다음 상담 내용을 분석해주세요.${contextInfo}
-
-상담 내용:
-${analysisText}
-
-다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "transcript": "정리된 대화 내용 (원문이 아닌 깔끔하게 정리된 버전)",
-  "summary": "상담 핵심 요약 (3-4문장)",
-  "keyPoints": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
-  "parentConcerns": ["학부모가 걱정/관심 보인 사항들"],
-  "positiveSignals": ["등록 가능성을 높이는 긍정 신호들"],
-  "negativeSignals": ["등록을 방해할 수 있는 부정 신호들"],
-  "interestScore": 1~10 사이 정수,
-  "conversionProbability": 0~100 사이 정수,
-  "suggestedActions": ["추천 후속 조치 1", "추천 후속 조치 2"],
-  "talkingPoints": ["다음 상담 시 언급하면 좋을 포인트들"]
-}`;
+    const prompt = buildAnalysisPrompt(analysisText, context);
 
     const raw = await askGemini(prompt);
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
