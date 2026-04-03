@@ -93,52 +93,48 @@ export default function AiAnalysisPage() {
     });
   }
 
-  async function compressAudio(file: File, maxSizeMB = 3): Promise<File> {
-    if (file.size <= maxSizeMB * 1024 * 1024) return file;
-
+  async function compressAudio(file: File): Promise<File> {
+    // Re-encode audio to Opus/WebM at low bitrate using MediaRecorder
+    // 17min audio → ~2MB (fits Vercel 4.5MB limit)
     const arrayBuffer = await file.arrayBuffer();
-    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const audioCtx = new AudioContext();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-    // Downmix to mono, 16kHz
-    const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
-    const source = offlineCtx.createBufferSource();
+    // Create offline context to process audio
+    const dest = audioCtx.createMediaStreamDestination();
+    const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(offlineCtx.destination);
+    source.connect(dest);
+
+    // Record with MediaRecorder at low bitrate
+    const mediaRecorder = new MediaRecorder(dest.stream, {
+      mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm",
+      audioBitsPerSecond: 16000, // 16kbps = ~2KB/sec
+    });
+
+    const chunks: Blob[] = [];
+    const done = new Promise<File>((resolve) => {
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "audio/webm" }));
+      };
+    });
+
+    mediaRecorder.start();
     source.start();
-    const rendered = await offlineCtx.startRendering();
 
-    // Encode as WAV
-    const channelData = rendered.getChannelData(0);
-    const wavBuffer = encodeWAV(channelData, 16000);
-    await audioCtx.close();
-    return new File([wavBuffer], file.name.replace(/\.[^.]+$/, ".wav"), { type: "audio/wav" });
-  }
-
-  function encodeWAV(samples: Float32Array, sampleRate: number): ArrayBuffer {
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
-    const view = new DataView(buffer);
-    const writeString = (offset: number, str: string) => {
-      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    // Stop when audio finishes
+    source.onended = () => {
+      mediaRecorder.stop();
+      audioCtx.close();
     };
-    writeString(0, "RIFF");
-    view.setUint32(4, 36 + samples.length * 2, true);
-    writeString(8, "WAVE");
-    writeString(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, "data");
-    view.setUint32(40, samples.length * 2, true);
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    }
-    return buffer;
+
+    return done;
   }
 
   async function handleAnalyze() {
@@ -175,53 +171,30 @@ export default function AiAnalysisPage() {
           body: formData,
         });
       } else if (mode === "audio" && file) {
-        // Audio: 2-step upload via Gemini File API (no size limit)
-        // Step 1: Get upload URL from server
-        const initRes = await fetch("/api/ai/upload-audio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: file.name,
-            mimeType: file.type || "audio/mpeg",
-            fileSize: file.size,
-          }),
-        });
-        const initData = await initRes.json();
-        if (!initData.uploadUrl) {
-          toast.error(initData.error || "업로드 초기화 실패");
+        // Audio: compress with Opus codec then upload
+        toast.info("음성 파일 압축 중... (긴 파일은 시간이 걸립니다)");
+        let audioFile: File;
+        try {
+          audioFile = await compressAudio(file);
+        } catch {
+          toast.error("음성 파일 압축에 실패했습니다. 다른 형식을 시도해주세요.");
           setLoading(false);
           return;
         }
 
-        // Step 2: Upload file directly to Google
-        toast.info("음성 파일 업로드 중...");
-        const uploadRes = await fetch(initData.uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Length": String(file.size),
-            "X-Goog-Upload-Offset": "0",
-            "X-Goog-Upload-Command": "upload, finalize",
-          },
-          body: file,
-        });
-        const uploadData = await uploadRes.json();
-        const fileUri = uploadData?.file?.uri;
-        if (!fileUri) {
-          toast.error("파일 업로드 실패");
+        if (audioFile.size > 4 * 1024 * 1024) {
+          toast.error(`압축 후 ${(audioFile.size / 1024 / 1024).toFixed(1)}MB — 텍스트 입력을 이용해주세요.`);
           setLoading(false);
           return;
         }
 
-        // Step 3: Analyze with file URI
-        toast.info("AI 분석 중...");
-        res = await fetch("/api/ai/analyze-audio", {
+        const formData = new FormData();
+        formData.append("type", "audio");
+        formData.append("file", audioFile);
+        if (context) formData.append("context", context);
+        res = await fetch("/api/ai/analyze", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileUri,
-            mimeType: file.type || "audio/mpeg",
-            context,
-          }),
+          body: formData,
         });
       } else {
         toast.error("파일을 선택해주세요.");
