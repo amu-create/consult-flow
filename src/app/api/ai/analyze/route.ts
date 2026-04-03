@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { askGemini } from "@/lib/gemini";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
 
 export async function POST(request: NextRequest) {
   try {
