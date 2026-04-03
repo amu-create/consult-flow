@@ -1,39 +1,40 @@
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-interface GeminiResponse {
-  candidates?: Array<{
-    content: {
-      parts: Array<{ text: string }>;
-    };
-  }>;
-  error?: { message: string };
-}
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-2.5-flash-lite",
+  generationConfig: {
+    temperature: 0.3,
+    maxOutputTokens: 2048,
+  },
+});
 
 export async function askGemini(prompt: string): Promise<string> {
-  if (!GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY not configured");
   }
 
-  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      },
-    }),
-  });
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
+}
 
-  const data: GeminiResponse = await res.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
+export async function askGeminiWithImage(
+  prompt: string,
+  imageData: string,
+  mimeType: string
+): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY not configured");
   }
 
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const result = await model.generateContent([
+    { inlineData: { mimeType, data: imageData } },
+    { text: prompt },
+  ]);
+  const response = await result.response;
+  return response.text();
 }
 
 export function buildSummaryPrompt(consultation: {

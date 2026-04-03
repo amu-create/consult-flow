@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
-import { askGemini } from "@/lib/gemini";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
+import { askGemini, askGeminiWithImage } from "@/lib/gemini";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,9 +29,7 @@ export async function POST(request: NextRequest) {
       context = formData.get("context") as string | null;
     }
 
-    console.log("[ai-analyze] type:", type, "hasText:", !!text, "textLen:", text?.length, "hasFile:", !!file);
-
-    if (!GEMINI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return Response.json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." }, { status: 500 });
     }
 
@@ -47,48 +42,28 @@ export async function POST(request: NextRequest) {
       const base64 = buffer.toString("base64");
       const mimeType = file.type || "image/jpeg";
 
-      const res = await fetch(`${GEMINI_VISION_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [
-            { inlineData: { mimeType, data: base64 } },
-            { text: "이 이미지는 카카오톡 또는 메신저 대화 캡처입니다. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요." },
-          ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-        }),
-      });
-
-      const data = await res.json();
-      console.log("[ai-analyze] vision response:", JSON.stringify(data).slice(0, 300));
-      analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      analysisText = await askGeminiWithImage(
+        "이 이미지는 카카오톡 또는 메신저 대화 캡처입니다. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요.",
+        base64,
+        mimeType
+      );
 
       if (!analysisText) {
-        return Response.json({ error: "이미지에서 텍스트를 추출할 수 없습니다.", detail: JSON.stringify(data).slice(0, 300) }, { status: 400 });
+        return Response.json({ error: "이미지에서 텍스트를 추출할 수 없습니다." }, { status: 400 });
       }
     } else if (type === "audio" && file) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const base64 = buffer.toString("base64");
       const mimeType = file.type || "audio/webm";
 
-      const res = await fetch(`${GEMINI_VISION_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [
-            { inlineData: { mimeType, data: base64 } },
-            { text: "이 음성은 학원 상담 통화 녹음입니다. 대화 내용을 텍스트로 변환해주세요. 상담사와 학부모를 구분해서 작성하세요." },
-          ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
-        }),
-      });
-
-      const data = await res.json();
-      console.log("[ai-analyze] audio response:", JSON.stringify(data).slice(0, 300));
-      analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      analysisText = await askGeminiWithImage(
+        "이 음성은 학원 상담 통화 녹음입니다. 대화 내용을 텍스트로 변환해주세요. 상담사와 학부모를 구분해서 작성하세요.",
+        base64,
+        mimeType
+      );
 
       if (!analysisText) {
-        return Response.json({ error: "음성에서 텍스트를 추출할 수 없습니다.", detail: JSON.stringify(data).slice(0, 300) }, { status: 400 });
+        return Response.json({ error: "음성에서 텍스트를 추출할 수 없습니다." }, { status: 400 });
       }
     } else {
       return Response.json({ error: "텍스트, 이미지, 또는 음성 파일을 입력해주세요." }, { status: 400 });
@@ -114,9 +89,7 @@ ${analysisText}
   "talkingPoints": ["다음 상담 시 언급하면 좋을 포인트들"]
 }`;
 
-    console.log("[ai-analyze] calling gemini, prompt length:", prompt.length);
     const raw = await askGemini(prompt);
-    console.log("[ai-analyze] gemini raw:", raw.slice(0, 200));
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let result;
@@ -133,9 +106,9 @@ ${analysisText}
       ...result,
     });
   } catch (err) {
-    console.error("[ai-analyze] unhandled error:", err);
+    console.error("[ai-analyze] error:", err);
     return Response.json(
-      { error: "서버 오류가 발생했습니다.", detail: String(err) },
+      { error: String(err).includes("quota") ? "API 할당량 초과. 잠시 후 다시 시도해주세요." : "AI 분석에 실패했습니다.", detail: String(err) },
       { status: 500 }
     );
   }
