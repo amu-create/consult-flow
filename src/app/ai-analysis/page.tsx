@@ -46,6 +46,7 @@ export default function AiAnalysisPage() {
   const [context, setContext] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
@@ -131,7 +132,7 @@ export default function AiAnalysisPage() {
         });
       } else if (mode === "audio" && file) {
         // Audio: upload to Vercel Blob → server downloads & sends to Gemini
-        toast.info("음성 파일 업로드 중...");
+        setStage("uploading");
         setUploadProgress(0);
 
         let blobResult;
@@ -144,11 +145,12 @@ export default function AiAnalysisPage() {
         } catch (err) {
           toast.error("파일 업로드 실패: " + String(err));
           setLoading(false);
+          setStage("");
           return;
         }
 
         setUploadProgress(100);
-        toast.info("AI 분석 중... (Gemini가 음성을 분석합니다)");
+        setStage("analyzing");
 
         res = await fetch("/api/ai/analyze-audio", {
           method: "POST",
@@ -185,6 +187,7 @@ export default function AiAnalysisPage() {
       toast.error("서버 오류: " + String(err));
     }
     setLoading(false);
+    setStage("");
   }
 
   function getScoreColor(score: number) {
@@ -334,23 +337,66 @@ export default function AiAnalysisPage() {
             />
           </div>
 
-          <Button
-            onClick={handleAnalyze}
-            disabled={loading}
-            className="w-full bg-violet-600 hover:bg-violet-700"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                {mode === "audio" && uploadProgress < 100
-                  ? `업로드 중... ${uploadProgress}%`
-                  : "AI 분석 중..."}
-              </>
-            ) : (
-              <><Brain className="h-5 w-5 mr-2" /> AI 분석 시작</>
-            )}
-          </Button>
+          {loading && mode === "audio" && stage ? (
+            <div className="space-y-3 rounded-xl border-2 border-violet-200 bg-violet-50/50 p-4">
+              {/* Step indicators */}
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                  stage === "uploading" ? "bg-violet-600 text-white animate-pulse" : "bg-green-500 text-white"
+                }`}>
+                  {stage === "uploading" ? "1" : "✓"}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">파일 업로드</p>
+                  {stage === "uploading" && (
+                    <div className="mt-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-2 bg-violet-600 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                  {stage === "uploading" && (
+                    <p className="text-xs text-muted-foreground mt-1">{uploadProgress}% 완료</p>
+                  )}
+                  {stage === "analyzing" && (
+                    <p className="text-xs text-green-600">완료</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                  stage === "analyzing" ? "bg-violet-600 text-white animate-pulse" : "bg-gray-200 text-gray-400"
+                }`}>
+                  2
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${stage === "analyzing" ? "" : "text-muted-foreground"}`}>
+                    AI 음성 분석
+                  </p>
+                  {stage === "analyzing" && (
+                    <p className="text-xs text-violet-600 flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Gemini가 음성을 분석하고 있습니다...
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Button
+              onClick={handleAnalyze}
+              disabled={loading}
+              className="w-full bg-violet-600 hover:bg-violet-700"
+              size="lg"
+            >
+              {loading ? (
+                <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> AI 분석 중...</>
+              ) : (
+                <><Brain className="h-5 w-5 mr-2" /> AI 분석 시작</>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
