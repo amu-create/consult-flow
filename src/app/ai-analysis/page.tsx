@@ -93,6 +93,54 @@ export default function AiAnalysisPage() {
     });
   }
 
+  async function compressAudio(file: File, maxSizeMB = 3): Promise<File> {
+    if (file.size <= maxSizeMB * 1024 * 1024) return file;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    // Downmix to mono, 16kHz
+    const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(offlineCtx.destination);
+    source.start();
+    const rendered = await offlineCtx.startRendering();
+
+    // Encode as WAV
+    const channelData = rendered.getChannelData(0);
+    const wavBuffer = encodeWAV(channelData, 16000);
+    await audioCtx.close();
+    return new File([wavBuffer], file.name.replace(/\.[^.]+$/, ".wav"), { type: "audio/wav" });
+  }
+
+  function encodeWAV(samples: Float32Array, sampleRate: number): ArrayBuffer {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return buffer;
+  }
+
   async function handleAnalyze() {
     if (mode === "text" && !text.trim()) {
       toast.error("상담 내용을 입력해주세요.");
@@ -122,14 +170,20 @@ export default function AiAnalysisPage() {
         if (file && mode === "image") {
           const compressed = await compressImage(file, 1);
           formData.append("file", compressed);
-        } else if (file) {
-          // Audio: check size limit (4MB for Vercel)
-          if (file.size > 4 * 1024 * 1024) {
-            toast.error("음성 파일이 너무 큽니다 (4MB 이하만 가능).");
+        } else if (file && mode === "audio") {
+          try {
+            const compressed = await compressAudio(file, 3);
+            if (compressed.size > 4 * 1024 * 1024) {
+              toast.error("음성 파일이 너무 큽니다. 3분 이내 녹음을 사용해주세요.");
+              setLoading(false);
+              return;
+            }
+            formData.append("file", compressed);
+          } catch {
+            toast.error("음성 파일 처리에 실패했습니다. 다른 형식을 시도해주세요.");
             setLoading(false);
             return;
           }
-          formData.append("file", file);
         }
         if (context) formData.append("context", context);
         res = await fetch("/api/ai/analyze", {
