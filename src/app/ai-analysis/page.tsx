@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Brain,
-  Upload,
+  Upload as UploadIcon,
   Mic,
   MessageSquare,
   FileText,
@@ -93,49 +94,7 @@ export default function AiAnalysisPage() {
     });
   }
 
-  async function compressAudio(file: File): Promise<File> {
-    // Re-encode audio to Opus/WebM at low bitrate using MediaRecorder
-    // 17min audio → ~2MB (fits Vercel 4.5MB limit)
-    const arrayBuffer = await file.arrayBuffer();
-    const audioCtx = new AudioContext();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-    // Create offline context to process audio
-    const dest = audioCtx.createMediaStreamDestination();
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(dest);
-
-    // Record with MediaRecorder at low bitrate
-    const mediaRecorder = new MediaRecorder(dest.stream, {
-      mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm",
-      audioBitsPerSecond: 16000, // 16kbps = ~2KB/sec
-    });
-
-    const chunks: Blob[] = [];
-    const done = new Promise<File>((resolve) => {
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "audio/webm" }));
-      };
-    });
-
-    mediaRecorder.start();
-    source.start();
-
-    // Stop when audio finishes
-    source.onended = () => {
-      mediaRecorder.stop();
-      audioCtx.close();
-    };
-
-    return done;
-  }
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   async function handleAnalyze() {
     if (mode === "text" && !text.trim()) {
@@ -171,30 +130,34 @@ export default function AiAnalysisPage() {
           body: formData,
         });
       } else if (mode === "audio" && file) {
-        // Audio: compress with Opus codec then upload
-        toast.info("음성 파일 압축 중... (긴 파일은 시간이 걸립니다)");
-        let audioFile: File;
+        // Audio: upload to Vercel Blob → server downloads & sends to Gemini
+        toast.info("음성 파일 업로드 중...");
+        setUploadProgress(0);
+
+        let blobResult;
         try {
-          audioFile = await compressAudio(file);
-        } catch {
-          toast.error("음성 파일 압축에 실패했습니다. 다른 형식을 시도해주세요.");
+          blobResult = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/ai/blob-upload",
+            onUploadProgress: ({ percentage }) => setUploadProgress(percentage),
+          });
+        } catch (err) {
+          toast.error("파일 업로드 실패: " + String(err));
           setLoading(false);
           return;
         }
 
-        if (audioFile.size > 4 * 1024 * 1024) {
-          toast.error(`압축 후 ${(audioFile.size / 1024 / 1024).toFixed(1)}MB — 텍스트 입력을 이용해주세요.`);
-          setLoading(false);
-          return;
-        }
+        setUploadProgress(100);
+        toast.info("AI 분석 중... (Gemini가 음성을 분석합니다)");
 
-        const formData = new FormData();
-        formData.append("type", "audio");
-        formData.append("file", audioFile);
-        if (context) formData.append("context", context);
-        res = await fetch("/api/ai/analyze", {
+        res = await fetch("/api/ai/analyze-audio", {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            blobUrl: blobResult.url,
+            mimeType: file.type || "audio/webm",
+            context,
+          }),
         });
       } else {
         toast.error("파일을 선택해주세요.");
@@ -315,7 +278,7 @@ export default function AiAnalysisPage() {
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <UploadIcon className="h-8 w-8 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">클릭하여 이미지 업로드</p>
                     <p className="text-xs text-gray-400">PNG, JPG, WEBP (최대 10MB)</p>
                   </>
@@ -346,9 +309,9 @@ export default function AiAnalysisPage() {
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <UploadIcon className="h-8 w-8 text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">클릭하여 음성 파일 업로드</p>
-                    <p className="text-xs text-gray-400">MP3, WAV, M4A, WEBM (긴 녹음도 OK)</p>
+                    <p className="text-xs text-gray-400">MP3, WAV, M4A, WEBM (최대 100MB, 긴 녹음도 OK)</p>
                   </>
                 )}
               </div>
@@ -378,7 +341,12 @@ export default function AiAnalysisPage() {
             size="lg"
           >
             {loading ? (
-              <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> AI 분석 중...</>
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                {mode === "audio" && uploadProgress < 100
+                  ? `업로드 중... ${uploadProgress}%`
+                  : "AI 분석 중..."}
+              </>
             ) : (
               <><Brain className="h-5 w-5 mr-2" /> AI 분석 시작</>
             )}
