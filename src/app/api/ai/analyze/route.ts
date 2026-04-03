@@ -11,11 +11,24 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const formData = await request.formData();
-  const type = formData.get("type") as string; // "text" | "image" | "audio"
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch (err) {
+    console.error("[ai-analyze] formData parse error:", err);
+    return Response.json({ error: "요청 데이터 파싱 실패", detail: String(err) }, { status: 400 });
+  }
+
+  const type = (formData.get("type") as string) || "text";
   const text = formData.get("text") as string | null;
   const file = formData.get("file") as File | null;
-  const context = formData.get("context") as string | null; // optional: student info
+  const context = formData.get("context") as string | null;
+
+  console.log("[ai-analyze] type:", type, "hasText:", !!text, "hasFile:", !!file, "fileSize:", file?.size);
+
+  if (!GEMINI_API_KEY) {
+    return Response.json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." }, { status: 500 });
+  }
 
   try {
     let analysisText = "";
@@ -109,8 +122,15 @@ ${analysisText}
 }`;
 
     const raw = await askGemini(prompt);
+    console.log("[ai-analyze] gemini response length:", raw.length);
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const result = JSON.parse(cleaned);
+    let result;
+    try {
+      result = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("[ai-analyze] JSON parse error:", parseErr, "raw:", cleaned.slice(0, 500));
+      return Response.json({ error: "AI 응답 파싱 실패", detail: cleaned.slice(0, 300) }, { status: 500 });
+    }
 
     return Response.json({
       success: true,
