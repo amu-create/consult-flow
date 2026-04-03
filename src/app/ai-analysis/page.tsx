@@ -49,6 +49,50 @@ export default function AiAnalysisPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
 
+  async function compressImage(file: File, maxSizeMB = 1): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        // Max 1600px on longest side
+        const maxDim = 1600;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        let quality = 0.7;
+        const tryCompress = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size > maxSizeMB * 1024 * 1024 && quality > 0.1) {
+                quality -= 0.15;
+                tryCompress();
+              } else {
+                resolve(new File([blob!], file.name, { type: "image/jpeg" }));
+              }
+            },
+            "image/jpeg",
+            quality
+          );
+        };
+        tryCompress();
+      };
+      img.src = url;
+    });
+  }
+
   async function handleAnalyze() {
     if (mode === "text" && !text.trim()) {
       toast.error("상담 내용을 입력해주세요.");
@@ -72,10 +116,21 @@ export default function AiAnalysisPage() {
           body: JSON.stringify({ type: "text", text, context }),
         });
       } else {
-        // File mode: send as FormData
+        // File mode: compress image, then send as FormData
         const formData = new FormData();
         formData.append("type", mode);
-        if (file) formData.append("file", file);
+        if (file && mode === "image") {
+          const compressed = await compressImage(file, 1);
+          formData.append("file", compressed);
+        } else if (file) {
+          // Audio: check size limit (4MB for Vercel)
+          if (file.size > 4 * 1024 * 1024) {
+            toast.error("음성 파일이 너무 큽니다 (4MB 이하만 가능).");
+            setLoading(false);
+            return;
+          }
+          formData.append("file", file);
+        }
         if (context) formData.append("context", context);
         res = await fetch("/api/ai/analyze", {
           method: "POST",
