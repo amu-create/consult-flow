@@ -6,19 +6,19 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let type = "text";
-  let text: string | null = null;
-  let file: File | null = null;
-  let context: string | null = null;
-
-  const contentType = request.headers.get("content-type") || "";
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let type = "text";
+    let text: string | null = null;
+    let file: File | null = null;
+    let context: string | null = null;
+
+    const contentType = request.headers.get("content-type") || "";
+
     if (contentType.includes("application/json")) {
       const json = await request.json();
       type = json.type || "text";
@@ -31,25 +31,18 @@ export async function POST(request: NextRequest) {
       file = formData.get("file") as File | null;
       context = formData.get("context") as string | null;
     }
-  } catch (err) {
-    console.error("[ai-analyze] parse error:", err);
-    return Response.json({ error: "요청 데이터 파싱 실패", detail: String(err) }, { status: 400 });
-  }
 
-  console.log("[ai-analyze] type:", type, "hasText:", !!text, "hasFile:", !!file, "fileSize:", file?.size);
+    console.log("[ai-analyze] type:", type, "hasText:", !!text, "textLen:", text?.length, "hasFile:", !!file);
 
-  if (!GEMINI_API_KEY) {
-    return Response.json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." }, { status: 500 });
-  }
+    if (!GEMINI_API_KEY) {
+      return Response.json({ error: "GEMINI_API_KEY가 설정되지 않았습니다." }, { status: 500 });
+    }
 
-  try {
     let analysisText = "";
 
     if (type === "text" && text) {
-      // Direct text analysis
       analysisText = text;
     } else if (type === "image" && file) {
-      // Image (screenshot of chat) -> Gemini Vision to extract text
       const buffer = Buffer.from(await file.arrayBuffer());
       const base64 = buffer.toString("base64");
       const mimeType = file.type || "image/jpeg";
@@ -58,28 +51,22 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inlineData: { mimeType, data: base64 },
-              },
-              {
-                text: "이 이미지는 카카오톡 또는 메신저 대화 캡처입니다. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요.",
-              },
-            ],
-          }],
+          contents: [{ parts: [
+            { inlineData: { mimeType, data: base64 } },
+            { text: "이 이미지는 카카오톡 또는 메신저 대화 캡처입니다. 대화 내용을 그대로 텍스트로 추출해주세요. 발화자와 내용을 구분해서 작성하세요." },
+          ]}],
           generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
         }),
       });
 
       const data = await res.json();
+      console.log("[ai-analyze] vision response:", JSON.stringify(data).slice(0, 300));
       analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
       if (!analysisText) {
-        return Response.json({ error: "이미지에서 텍스트를 추출할 수 없습니다." }, { status: 400 });
+        return Response.json({ error: "이미지에서 텍스트를 추출할 수 없습니다.", detail: JSON.stringify(data).slice(0, 300) }, { status: 400 });
       }
     } else if (type === "audio" && file) {
-      // Audio -> Gemini can process audio directly
       const buffer = Buffer.from(await file.arrayBuffer());
       const base64 = buffer.toString("base64");
       const mimeType = file.type || "audio/webm";
@@ -88,31 +75,25 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inlineData: { mimeType, data: base64 },
-              },
-              {
-                text: "이 음성은 학원 상담 통화 녹음입니다. 대화 내용을 텍스트로 변환해주세요. 상담사와 학부모를 구분해서 작성하세요.",
-              },
-            ],
-          }],
+          contents: [{ parts: [
+            { inlineData: { mimeType, data: base64 } },
+            { text: "이 음성은 학원 상담 통화 녹음입니다. 대화 내용을 텍스트로 변환해주세요. 상담사와 학부모를 구분해서 작성하세요." },
+          ]}],
           generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
         }),
       });
 
       const data = await res.json();
+      console.log("[ai-analyze] audio response:", JSON.stringify(data).slice(0, 300));
       analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
       if (!analysisText) {
-        return Response.json({ error: "음성에서 텍스트를 추출할 수 없습니다." }, { status: 400 });
+        return Response.json({ error: "음성에서 텍스트를 추출할 수 없습니다.", detail: JSON.stringify(data).slice(0, 300) }, { status: 400 });
       }
     } else {
       return Response.json({ error: "텍스트, 이미지, 또는 음성 파일을 입력해주세요." }, { status: 400 });
     }
 
-    // Now analyze the extracted/input text
     const contextInfo = context ? `\n학생 정보: ${context}` : "";
     const prompt = `당신은 학원 상담 전문 AI 분석가입니다. 다음 상담 내용을 분석해주세요.${contextInfo}
 
@@ -133,15 +114,16 @@ ${analysisText}
   "talkingPoints": ["다음 상담 시 언급하면 좋을 포인트들"]
 }`;
 
+    console.log("[ai-analyze] calling gemini, prompt length:", prompt.length);
     const raw = await askGemini(prompt);
-    console.log("[ai-analyze] gemini response length:", raw.length);
+    console.log("[ai-analyze] gemini raw:", raw.slice(0, 200));
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
     let result;
     try {
       result = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error("[ai-analyze] JSON parse error:", parseErr, "raw:", cleaned.slice(0, 500));
-      return Response.json({ error: "AI 응답 파싱 실패", detail: cleaned.slice(0, 300) }, { status: 500 });
+    } catch {
+      return Response.json({ error: "AI 응답 파싱 실패", detail: cleaned.slice(0, 500) }, { status: 500 });
     }
 
     return Response.json({
@@ -151,9 +133,9 @@ ${analysisText}
       ...result,
     });
   } catch (err) {
-    console.error("[ai-analyze] error:", err);
+    console.error("[ai-analyze] unhandled error:", err);
     return Response.json(
-      { error: "AI 분석에 실패했습니다.", detail: String(err) },
+      { error: "서버 오류가 발생했습니다.", detail: String(err) },
       { status: 500 }
     );
   }
