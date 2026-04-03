@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isValidTransition } from "@/lib/status-machine";
+import { sendAutoNotification } from "@/lib/auto-notify";
 
 export async function PATCH(
   request: NextRequest,
@@ -46,6 +47,13 @@ export async function PATCH(
       },
     }),
   ]);
+
+  // Auto-notify on status change (fire-and-forget)
+  sendAutoNotification({
+    toStatus,
+    studentName: lead.studentName,
+    parentPhone: lead.parentPhone,
+  }).catch((err) => console.error("[auto-notify] failed:", err));
 
   return Response.json(updatedLead);
 }

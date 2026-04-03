@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isValidTransition } from "@/lib/status-machine";
+import { sendAutoNotification } from "@/lib/auto-notify";
 
 export async function POST(
   request: NextRequest,
@@ -52,6 +53,13 @@ export async function POST(
       },
     }),
   ]);
+
+  // Auto-notify on drop-off (fire-and-forget)
+  sendAutoNotification({
+    toStatus: "DROPPED",
+    studentName: lead.studentName,
+    parentPhone: lead.parentPhone,
+  }).catch((err) => console.error("[auto-notify] failed:", err));
 
   return Response.json(result[0], { status: 201 });
 }

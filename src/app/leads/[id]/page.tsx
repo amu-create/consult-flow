@@ -21,7 +21,7 @@ import {
   type LeadStatus,
 } from "@/lib/constants";
 import { getNextStatuses } from "@/lib/status-machine";
-import { ArrowLeft, Edit2 } from "lucide-react";
+import { ArrowLeft, Edit2, Brain, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -95,6 +95,32 @@ export default function LeadDetailPage({
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDropOff, setShowDropOff] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    aiScore: number;
+    confidence: string;
+    analysis: string;
+    conversionProbability: number;
+    recommendation: string;
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  async function handleAiAnalysis() {
+    setAiLoading(true);
+    try {
+      const res = await fetch(`/api/leads/${id}/ai-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiAnalysis(data);
+        fetchLead(); // refresh score
+      }
+    } catch {
+      // ignore
+    }
+    setAiLoading(false);
+  }
 
   const fetchLead = useCallback(() => {
     fetch(`/api/leads/${id}`)
@@ -142,6 +168,18 @@ export default function LeadDetailPage({
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            className="text-violet-600 border-violet-300 hover:bg-violet-50"
+            onClick={handleAiAnalysis}
+            disabled={aiLoading}
+          >
+            {aiLoading ? (
+              <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> 분석 중</>
+            ) : (
+              <><Brain className="h-4 w-4 mr-1" /> AI 분석</>
+            )}
+          </Button>
           {nonDropStatuses.length > 0 && (
             <Button variant="outline" onClick={() => setShowStatusModal(true)}>
               상태 변경
@@ -185,6 +223,37 @@ export default function LeadDetailPage({
         </Card>
       )}
 
+      {/* AI Analysis Result */}
+      {aiAnalysis && (
+        <Card className="border-violet-200 bg-violet-50">
+          <CardContent className="pt-4 pb-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-violet-800 flex items-center gap-1.5">
+                <Brain className="h-4 w-4" /> AI 관심도 분석
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-violet-600">신뢰도: {aiAnalysis.confidence === "high" ? "높음" : aiAnalysis.confidence === "medium" ? "보통" : "낮음"}</span>
+                <span className="rounded-full bg-violet-200 px-3 py-1 text-sm font-bold text-violet-800">
+                  등록 가능성 {aiAnalysis.conversionProbability}%
+                </span>
+              </div>
+            </div>
+            <p className="text-sm text-violet-900">{aiAnalysis.analysis}</p>
+            <p className="text-sm text-violet-700"><strong>추천 전략:</strong> {aiAnalysis.recommendation}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-violet-600">AI 점수:</span>
+              <div className="flex-1 h-2 bg-violet-200 rounded-full">
+                <div
+                  className="h-2 bg-violet-600 rounded-full transition-all"
+                  style={{ width: `${aiAnalysis.aiScore * 10}%` }}
+                />
+              </div>
+              <span className="text-sm font-bold text-violet-800">{aiAnalysis.aiScore}/10</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs - default to timeline */}
       <Tabs defaultValue="timeline">
         <TabsList>
@@ -202,7 +271,7 @@ export default function LeadDetailPage({
               상담 기록 추가
             </Button>
           </div>
-          <ConsultationTimeline consultations={lead.consultations} />
+          <ConsultationTimeline consultations={lead.consultations} leadId={lead.id} />
         </TabsContent>
 
         {/* Info Tab */}
