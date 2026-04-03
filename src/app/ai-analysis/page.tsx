@@ -82,15 +82,25 @@ export default function AiAnalysisPage() {
           body: formData,
         });
       }
-      const data = await res.json();
+      const responseText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        toast.error(`서버 응답 오류 (${res.status}): ${responseText.slice(0, 200)}`);
+        setLoading(false);
+        return;
+      }
       if (data.success) {
         setResult(data);
         toast.success("분석 완료!");
       } else {
-        toast.error(data.error || "분석에 실패했습니다.");
+        toast.error(data.error || "분석에 실패했습니다.", {
+          description: data.detail ? String(data.detail).slice(0, 100) : undefined,
+        });
       }
-    } catch {
-      toast.error("서버 오류가 발생했습니다.");
+    } catch (err) {
+      toast.error("서버 오류: " + String(err));
     }
     setLoading(false);
   }
