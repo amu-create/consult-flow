@@ -11,18 +11,30 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let formData: FormData;
+  let type = "text";
+  let text: string | null = null;
+  let file: File | null = null;
+  let context: string | null = null;
+
+  const contentType = request.headers.get("content-type") || "";
+
   try {
-    formData = await request.formData();
+    if (contentType.includes("application/json")) {
+      const json = await request.json();
+      type = json.type || "text";
+      text = json.text || null;
+      context = json.context || null;
+    } else {
+      const formData = await request.formData();
+      type = (formData.get("type") as string) || "text";
+      text = formData.get("text") as string | null;
+      file = formData.get("file") as File | null;
+      context = formData.get("context") as string | null;
+    }
   } catch (err) {
-    console.error("[ai-analyze] formData parse error:", err);
+    console.error("[ai-analyze] parse error:", err);
     return Response.json({ error: "요청 데이터 파싱 실패", detail: String(err) }, { status: 400 });
   }
-
-  const type = (formData.get("type") as string) || "text";
-  const text = formData.get("text") as string | null;
-  const file = formData.get("file") as File | null;
-  const context = formData.get("context") as string | null;
 
   console.log("[ai-analyze] type:", type, "hasText:", !!text, "hasFile:", !!file, "fileSize:", file?.size);
 

@@ -62,17 +62,26 @@ export default function AiAnalysisPage() {
     setLoading(true);
     setResult(null);
 
-    const formData = new FormData();
-    formData.append("type", mode);
-    if (text) formData.append("text", text);
-    if (file) formData.append("file", file);
-    if (context) formData.append("context", context);
-
     try {
-      const res = await fetch("/api/ai/analyze", {
-        method: "POST",
-        body: formData,
-      });
+      let res: Response;
+      if (mode === "text") {
+        // Text mode: send as JSON (avoids FormData issues on serverless)
+        res = await fetch("/api/ai/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "text", text, context }),
+        });
+      } else {
+        // File mode: send as FormData
+        const formData = new FormData();
+        formData.append("type", mode);
+        if (file) formData.append("file", file);
+        if (context) formData.append("context", context);
+        res = await fetch("/api/ai/analyze", {
+          method: "POST",
+          body: formData,
+        });
+      }
       const data = await res.json();
       if (data.success) {
         setResult(data);
