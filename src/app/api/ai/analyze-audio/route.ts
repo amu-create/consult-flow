@@ -91,11 +91,34 @@ export async function POST(request: NextRequest) {
       // Cleanup Vercel Blob
       try { await del(blobUrl); } catch { /* ignore */ }
 
+      // Clean up SRT-style timestamps: "00:00:05,000 --> 00:00:08,000" → "[0:05]"
+      function cleanTranscript(text: string): string {
+        if (!text) return text;
+        return text
+          // "00:00:05,000 --> 00:00:08,000\n내용" → "[0:05] 내용"
+          .replace(/(\d{2}):(\d{2}):(\d{2})[,.]?\d{0,3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]?\d{0,3}\s*\n?/g,
+            (_, h, m, s) => {
+              const mins = parseInt(h) * 60 + parseInt(m);
+              return `[${mins}:${s.padStart(2, "0")}] `;
+            })
+          // Standalone "00:00:05,000" → "[0:05]"
+          .replace(/(?:^|\n)(\d{2}):(\d{2}):(\d{2})[,.]?\d{0,3}(?:\s*$|\s*\n)/gm,
+            (_, h, m, s) => {
+              const mins = parseInt(h) * 60 + parseInt(m);
+              return `\n[${mins}:${s.padStart(2, "0")}] `;
+            })
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
+      const cleanedTranscript = cleanTranscript(parsed.transcript);
+
       return Response.json({
         success: true,
         inputType: "audio",
-        extractedText: parsed.transcript,
+        extractedText: cleanedTranscript,
         ...parsed,
+        transcript: cleanedTranscript,
       });
     } finally {
       try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }

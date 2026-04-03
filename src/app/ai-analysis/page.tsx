@@ -555,34 +555,32 @@ export default function AiAnalysisPage() {
             </Card>
           </div>
 
-          {/* Extracted Text (for image/audio) */}
-          {result.extractedText && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  추출된 텍스트
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm whitespace-pre-wrap bg-gray-50 rounded-lg p-3">
-                  {result.extractedText}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Transcript */}
-          {result.transcript && (
+          {/* Transcript / Extracted Text */}
+          {(result.extractedText || result.transcript) && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  정리된 대화 내용
+                  대화 내용
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{result.transcript}</p>
+                <div className="space-y-1.5">
+                  {(result.transcript || result.extractedText || "").split("\n").filter(Boolean).map((line, i) => {
+                    // Parse "[0:05] 대화내용" format
+                    const timeMatch = line.match(/^\[(\d+:\d{2})\]\s*(.*)/);
+                    if (timeMatch) {
+                      return (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-[10px] text-muted-foreground/50 font-mono mt-0.5 shrink-0 w-8 text-right">{timeMatch[1]}</span>
+                          <p className="text-sm">{timeMatch[2]}</p>
+                        </div>
+                      );
+                    }
+                    // Regular line (no timestamp)
+                    return <p key={i} className="text-sm">{line}</p>;
+                  })}
+                </div>
               </CardContent>
             </Card>
           )}
