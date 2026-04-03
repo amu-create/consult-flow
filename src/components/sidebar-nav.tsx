@@ -26,20 +26,56 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/leads", label: "리드 관리", icon: Users },
-  { href: "/leads/kanban", label: "파이프라인", icon: Columns3 },
-  { href: "/calendar", label: "체험 일정", icon: Calendar },
-  { href: "/tasks", label: "할 일", icon: ClipboardList },
-  { href: "/analytics", label: "분석", icon: BarChart3 },
-  { href: "/ai-analysis", label: "AI 상담 분석", icon: Brain },
-  { href: "/ai-tools", label: "AI 도구", icon: Wand2 },
-  { href: "/automation", label: "자동화", icon: Bell },
-  { href: "/fee-simulator", label: "수강료 계산", icon: Calculator },
-  { href: "/notifications", label: "알림 설정", icon: Bell },
-  { href: "/re-enrollment", label: "재등록 관리", icon: RefreshCw },
-  { href: "/demo-guide", label: "데모 가이드", icon: BookOpen },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: "",
+    items: [
+      { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "상담 관리",
+    items: [
+      { href: "/leads", label: "리드 관리", icon: Users },
+      { href: "/leads/kanban", label: "파이프라인", icon: Columns3 },
+      { href: "/calendar", label: "체험 일정", icon: Calendar },
+      { href: "/tasks", label: "할 일", icon: ClipboardList },
+    ],
+  },
+  {
+    title: "AI",
+    items: [
+      { href: "/ai-analysis", label: "상담 분석", icon: Brain },
+      { href: "/ai-tools", label: "AI 도구", icon: Wand2 },
+    ],
+  },
+  {
+    title: "분석 & 운영",
+    items: [
+      { href: "/analytics", label: "분석 대시보드", icon: BarChart3 },
+      { href: "/automation", label: "자동화", icon: Bell },
+      { href: "/fee-simulator", label: "수강료 계산", icon: Calculator },
+      { href: "/re-enrollment", label: "재등록 관리", icon: RefreshCw },
+    ],
+  },
+  {
+    title: "설정",
+    items: [
+      { href: "/notifications", label: "알림 설정", icon: Bell },
+      { href: "/demo-guide", label: "데모 가이드", icon: BookOpen },
+    ],
+  },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -76,30 +112,41 @@ function NavContent({ pathname, onNavigate }: { pathname: string; onNavigate?: (
           <span className="text-sm">ConsultFlow</span>
         </Link>
       </div>
-      <nav className="space-y-1 p-3 flex-1">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === "/leads"
-              ? pathname === "/leads" ||
-                (pathname.startsWith("/leads/") && !pathname.startsWith("/leads/kanban"))
-              : pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+        {navGroups.map((group) => (
+          <div key={group.title || "main"}>
+            {group.title && (
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.title}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive =
+                  item.href === "/leads"
+                    ? pathname === "/leads" ||
+                      (pathname.startsWith("/leads/") && !pathname.startsWith("/leads/kanban"))
+                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="border-t p-3 space-y-1">
         <ThemeToggle />
