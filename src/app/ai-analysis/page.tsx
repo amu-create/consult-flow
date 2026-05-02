@@ -40,7 +40,6 @@ import {
   Lightbulb,
   UserPlus,
   Save,
-  ExternalLink,
 } from "lucide-react";
 
 interface AnalysisResult {

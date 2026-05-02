@@ -48,10 +48,12 @@ export function DropOffModal({
       fetch("/api/users")
         .then((r) => r.json())
         .then(setUsers);
-      setSelectedReasons([]);
-      setDetailMemo("");
-      setCanRetry(false);
-      setCreatedBy("");
+      Promise.resolve().then(() => {
+        setSelectedReasons([]);
+        setDetailMemo("");
+        setCanRetry(false);
+        setCreatedBy("");
+      });
     }
   }, [open]);
 

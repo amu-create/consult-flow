@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TASK_TYPES, PRIORITIES, PRIORITY_COLORS } from "@/lib/constants";
 import { StatusBadge } from "@/components/status-badge";
 import { Check, X } from "lucide-react";

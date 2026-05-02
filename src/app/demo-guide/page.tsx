@@ -202,10 +202,10 @@ export default function DemoGuidePage() {
         <CardContent className="pt-4 pb-4">
           <p className="font-medium text-green-900 mb-1">데모 마무리 멘트</p>
           <p className="text-sm text-green-800">
-            "지금까지 보신 것처럼, ConsultFlow는 문의 접수부터 상담, 팔로업, 전환 분석까지
+            &quot;지금까지 보신 것처럼, ConsultFlow는 문의 접수부터 상담, 팔로업, 전환 분석까지
             학원 상담의 전 과정을 체계적으로 관리합니다. 엑셀이나 수기로는 불가능한
             관심도 자동 측정과 팔로업 강제 생성이 핵심 차별점이며, 이를 통해 학원의
-            등록 전환율을 실질적으로 높일 수 있습니다."
+            등록 전환율을 실질적으로 높일 수 있습니다.&quot;
           </p>
         </CardContent>
       </Card>

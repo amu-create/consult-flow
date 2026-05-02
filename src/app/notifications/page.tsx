@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   MessageSquare,
@@ -237,7 +236,7 @@ export default function NotificationsPage() {
               className="max-w-xs"
             />
             <p className="text-xs text-muted-foreground">
-              SMS 템플릿의 '테스트' 버튼으로 발송 (Solapi)
+              SMS 템플릿의 &apos;테스트&apos; 버튼으로 발송 (Solapi)
             </p>
           </div>
         </CardContent>

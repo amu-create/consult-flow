@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
-  Users,
   BarChart3,
-  ClipboardList,
   Target,
   ArrowRight,
   CheckCircle2,

@@ -106,3 +106,30 @@ src/
 ## 라이선스
 
 MIT
+
+---
+
+## Demo, Auth, And Environment Setup
+
+Copy `.env.example` to `.env.local` for local development and fill only the services you need. Do not commit real secret values.
+
+Local demo path:
+
+1. Run `npx prisma migrate dev`.
+2. Run `npm run db:seed`.
+3. Run `npm run dev`.
+4. Open `http://localhost:3000`.
+
+Environment variable groups:
+
+- `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`: optional locally because the app falls back to `file:./prisma/dev.db`; required for Turso/LibSQL deployment.
+- `GEMINI_API_KEY`: required for AI analysis, coaching, churn prediction, follow-up generation, and audio/image analysis.
+- `NEXT_PUBLIC_BASE_URL`: required for production OAuth callbacks and external notification links.
+- `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`: required for Kakao login and Kakao "send to me" flows.
+- `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_SENDER_NUMBER`: required for live SMS sends; blank values keep supported flows in mock/fallback mode.
+- `VERCEL_BLOB_READ_WRITE_TOKEN`: required for Vercel Blob audio/video upload and cleanup in deployed environments.
+
+Kakao redirect URL:
+
+- Local: `http://localhost:3000/api/auth/kakao/callback`
+- Production: `${NEXT_PUBLIC_BASE_URL}/api/auth/kakao/callback`

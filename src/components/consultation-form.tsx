@@ -52,7 +52,7 @@ export function ConsultationForm({
       fetch("/api/users")
         .then((r) => r.json())
         .then(setUsers);
-      setSelectedSignals([]);
+      Promise.resolve().then(() => setSelectedSignals([]));
     }
   }, [open]);
 

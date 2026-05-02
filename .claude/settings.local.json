@@ -1,43 +1,32 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx create-next-app@latest consult-flow:*)",
-      "Bash(npm install:*)",
-      "Bash(npx shadcn@latest init:*)",
-      "Bash(npx shadcn@latest add:*)",
-      "Bash(npx prisma:*)",
-      "Bash(npm run dev:*)",
-      "Bash(npm run build:*)",
-      "Write",
-      "Edit",
-      "MultiEdit",
-      "Bash(npx tsx:*)",
-      "mcp__Claude_Preview__preview_start",
-      "Bash(curl -s http://localhost:3000/api/leads)",
-      "Bash(node -e \"const d=require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\); const leads=JSON.parse\\(d\\); leads.forEach\\(l => console.log\\(l.id, l.studentName\\)\\);\")",
-      "Bash(npx next:*)",
-      "Bash(curl -k -s -X POST \"https://api.vercel.com/v13/deployments\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"project\"\"\"\":\"\"\"\"prj_ZAEnVN6vcoTOypn6Bc0VueTArd8F\"\"\"\",\"\"\"\"gitSource\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"github\"\"\"\",\"\"\"\"org\"\"\"\":\"\"\"\"amu-create\"\"\"\",\"\"\"\"repo\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"ref\"\"\"\":\"\"\"\"master\"\"\"\"}}')",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_AuHUkF7gM5BaWdxRF5bYwmF5goNp\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s \"https://api.vercel.com/v9/projects/consult-flow/env\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s -X POST \"https://api.vercel.com/v13/deployments\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"project\"\"\"\":\"\"\"\"prj_ZAEnVN6vcoTOypn6Bc0VueTArd8F\"\"\"\",\"\"\"\"gitSource\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"github\"\"\"\",\"\"\"\"org\"\"\"\":\"\"\"\"amu-create\"\"\"\",\"\"\"\"repo\"\"\"\":\"\"\"\"consult-flow\"\"\"\",\"\"\"\"ref\"\"\"\":\"\"\"\"master\"\"\"\"},\"\"\"\"target\"\"\"\":\"\"\"\"production\"\"\"\"}')",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_CPzVKWcs3Gj16FtyzJu2HAjQA66i\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s -o /dev/null -w \"%{http_code} %{redirect_url}\" \"https://consult-flow-amu-creates-projects.vercel.app/api/auth/kakao\")",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_5Bqnp4iA6BkuMwzu5vXBqh2ZuBuK\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_7yGg5sfEZojjkrd2vXewUbwtMDWS\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_6iQi8xf4NE3Uc3j7VoN9r1VxgH8E\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_H93A15QKWJtcsDPu8w4g2eAueUY2\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(curl -k -s -X POST \"https://api.vercel.com/v10/projects/consult-flow/domains\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"consult-flow-app.vercel.app\"\"\"\"}')",
-      "Bash(curl -k -s \"https://api.vercel.com/v13/deployments/dpl_Cq6s7sHuqeknyARNLQiFvQTH8ekf\" -H \"Authorization: Bearer UkuC597h9ivuAME569E7H9kF\")",
-      "Bash(npx vercel:*)"
-    ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ],
-    "defaultMode": "acceptEdits"
-  }
+﻿{
+    "permissions":  {
+                        "allow":  [
+                                      "Bash(npx create-next-app@latest consult-flow:*)",
+                                      "Bash(npm install:*)",
+                                      "Bash(npx shadcn@latest init:*)",
+                                      "Bash(npx shadcn@latest add:*)",
+                                      "Bash(npx prisma:*)",
+                                      "Bash(npm run dev:*)",
+                                      "Bash(npm run build:*)",
+                                      "Write",
+                                      "Edit",
+                                      "MultiEdit",
+                                      "Bash(npx tsx:*)",
+                                      "mcp__Claude_Preview__preview_start",
+                                      "Bash(curl -s http://localhost:3000/api/leads)",
+                                      "Bash(node -e \"const d=require\\(\u0027\u0027\u0027\u0027fs\u0027\u0027\u0027\u0027\\).readFileSync\\(\u0027\u0027\u0027\u0027/dev/stdin\u0027\u0027\u0027\u0027,\u0027\u0027\u0027\u0027utf8\u0027\u0027\u0027\u0027\\); const leads=JSON.parse\\(d\\); leads.forEach\\(l =\u003e console.log\\(l.id, l.studentName\\)\\);\")",
+                                      "Bash(npx next:*)",
+                                      "Bash(curl -k -s -o /dev/null -w \"%{http_code} %{redirect_url}\" \"https://consult-flow-amu-creates-projects.vercel.app/api/auth/kakao\")",
+                                      "Bash(git add:*)",
+                                      "Bash(git commit:*)",
+                                      "Bash(git push:*)",
+                                      "Bash(npx vercel:*)"
+                                  ],
+                        "deny":  [
+                                     "Read(./.env)",
+                                     "Read(./.env.*)",
+                                     "Read(./secrets/**)"
+                                 ],
+                        "defaultMode":  "acceptEdits"
+                    }
 }

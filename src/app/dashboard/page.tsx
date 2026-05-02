@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   Clock,
   Flame,
-  MessageSquare,
   CalendarClock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";

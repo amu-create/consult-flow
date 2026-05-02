@@ -55,9 +55,11 @@ export function StatusChangeModal({
       fetch("/api/users")
         .then((r) => r.json())
         .then(setUsers);
-      setToStatus("");
-      setReason("");
-      setChangedBy("");
+      Promise.resolve().then(() => {
+        setToStatus("");
+        setReason("");
+        setChangedBy("");
+      });
     }
   }, [open]);
 

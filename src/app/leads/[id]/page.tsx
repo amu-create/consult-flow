@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, use, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,14 +13,11 @@ import { StatusChangeModal } from "@/components/status-change-modal";
 import { DropOffModal } from "@/components/drop-off-modal";
 import { LeadEditModal } from "@/components/lead-edit-modal";
 import {
-  CHANNELS,
   INQUIRY_SOURCES,
   DROP_OFF_REASONS,
-  STATUS_LABELS,
-  type LeadStatus,
 } from "@/lib/constants";
 import { getNextStatuses } from "@/lib/status-machine";
-import { ArrowLeft, Edit2, Brain, Loader2, Mic, MessageSquare, Upload } from "lucide-react";
+import { ArrowLeft, Edit2, Brain, Loader2, Mic } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -89,7 +85,6 @@ export default function LeadDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [showConsultForm, setShowConsultForm] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);

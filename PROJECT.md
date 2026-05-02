@@ -11,3 +11,4 @@
 주의사항: .env 필수 — GEMINI_API_KEY 필수. 배포 시 TURSO_DATABASE_URL + TURSO_AUTH_TOKEN + VERCEL_BLOB_READ_WRITE_TOKEN 필요. 첫 실행 전 npx prisma migrate dev 및 npm run db:seed 실행 필요
 검증 방법: npm run build / npm run lint / npm run db:studio
 마지막 확인: 2026-04-16
+Portfolio readiness: DESIGN.md defines the dashboard design baseline. .env.example lists source-required env names with placeholders only. Local demo uses npx prisma migrate dev, npm run db:seed, npm run dev, then http://localhost:3000. Kakao OAuth requires NEXT_PUBLIC_BASE_URL plus Kakao app redirect URL /api/auth/kakao/callback.

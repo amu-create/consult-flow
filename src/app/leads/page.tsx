@@ -22,7 +22,7 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { InterestBadge } from "@/components/interest-badge";
 import { LeadFormModal } from "@/components/lead-form-modal";
-import { STATUS_LABELS, type LeadStatus } from "@/lib/constants";
+import { STATUS_LABELS } from "@/lib/constants";
 import { Plus, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
